@@ -1,0 +1,33 @@
+# Vecs - Roadmap
+- [x] Add entities
+- [x] Archetypes
+- [x] Queries
+- [x] Remove entities
+- [x] Support dynamic archetypes
+- [x] Add component
+- [x] Remove component
+- [x] Special Id component
+- [x] Restrict generic T on queries and components procs to be tuples
+- [x] 'Not' Queries
+- [x] 'Opt' Queries
+- [x] 'Write' Queries
+- [x] Stable ids for components
+- [x] Polish console output
+- [x] Convenience procs and checks
+- [x] Refactor `Id` component to a `Metadata` component with id, removal, and addition info
+- [x] Additions and removals should be enqueued and consolidated in order later
+- [x] Text serialization
+- [x] Add `after` operation mode, that processes add/remove operations after a query is iterated
+- [x] Minimal events system
+- [x] Serialization of world fragments
+  - [x] Without Id-remapping
+  - [x] With Id-remapping
+- [x] Binary serialization
+- [ ] glTF serialization
+- [ ] Integrate with [reploid](http://github.com/RowDaBoat/reploid)
+- [ ] Convenience procs
+  - [ ] `component` and `components` accept a list of entity ids
+  - [ ] Add and Remove multiple components
+- [ ] Concurrency support
+- [ ] Zero-allocation?
+- [ ] Spatial and custom queries
