@@ -195,9 +195,11 @@ macro accessTuple(t: typedesc): untyped =
     if result[i].kind == nnkBracketExpr and result[i][0] == bindSym"Not":
       result.del(i)
 
-  for i, x in result:
-    if x.kind == nnkBracketExpr and result[i][0] == bindSym"Write":
-      result[i] = nnkVarTy.newTree(x[1])
+  for i in 0..<result.len:
+    let fieldType = result[i]
+
+    if isOp(fieldType, "Write"):
+      result[i] = nnkVarTy.newTree(fieldType[1])
   result = newCall("typeof", result)
 
 
@@ -205,6 +207,13 @@ template accessor[T](world: var World, archetype: Archetype, archetypeEntityId: 
   cast[EcsSeq[T]](
     archetype.componentLists[world.componentIdFrom typeof T]
   )[archetypeEntityId]
+
+
+proc componentData[T](componentList: EcsSeq[T]): ptr UncheckedArray[T] {.inline.} =
+  if componentList.len == 0:
+    return nil
+
+  cast[ptr UncheckedArray[T]](unsafeAddr componentList[0])
 
 
 macro buildReadTuple(world: var World, t: typedesc, archetype: untyped, archetypeEntityId: untyped): untyped =
@@ -247,6 +256,67 @@ macro buildAccessTuple(world: var World, t: typedesc, archetype: untyped, archet
           accessor[`componentType`](world, `archetype`, `archetypeEntityId`)
 
     tupleExprs.add(fieldExpr)
+
+  result = tupleExprs
+
+
+macro buildComponentColumns(world: var World, t: typedesc, archetype: untyped): untyped =
+  let tupleType = t.getTypeInst[^1]
+  var tupleExprs = nnkTupleConstr.newTree()
+
+  for fieldType in tupleType:
+    if not isOp(fieldType, "Not"):
+      let componentType =
+        if isOp(fieldType, "Write") or isOp(fieldType, "Opt"):
+          fieldType[1]
+        else:
+          fieldType
+
+      let fieldExpr =
+        if isOp(fieldType, "Opt"):
+          quote do:
+            block:
+              let componentId = `world`.componentIdFrom typeof `componentType`
+
+              if `archetype`.contains(componentId):
+                let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[componentId])
+                componentData(componentList)
+              else:
+                cast[ptr UncheckedArray[`componentType`]](nil)
+        else:
+          quote do:
+            block:
+              let componentId = `world`.componentIdFrom typeof `componentType`
+              let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[componentId])
+              componentData(componentList)
+
+      tupleExprs.add(fieldExpr)
+
+  result = tupleExprs
+
+
+macro buildColumnAccessTuple(t: typedesc, componentColumns: untyped, archetypeEntityId: untyped): untyped =
+  let tupleType = t.getTypeInst[^1]
+  var tupleExprs = nnkTupleConstr.newTree()
+  var componentColumnIndex = 0
+
+  for fieldType in tupleType:
+    if not isOp(fieldType, "Not"):
+      let componentColumn = nnkBracketExpr.newTree(componentColumns, newLit(componentColumnIndex))
+      let fieldAccess = nnkBracketExpr.newTree(componentColumn, archetypeEntityId)
+      let fieldExpr =
+        if isOp(fieldType, "Opt"):
+          let componentType = fieldType[1]
+          quote do:
+            if `componentColumn` != nil:
+              some(`fieldAccess`)
+            else:
+              none[`componentType`]()
+        else:
+          fieldAccess
+
+      tupleExprs.add(fieldExpr)
+      inc componentColumnIndex
 
   result = tupleExprs
 
@@ -725,6 +795,29 @@ proc has*(world: var World, id: EntityId): bool =
   world.entities.has(id.value)
 
 
+proc applyQueryOperations[T: tuple](world: var World, query: var Query[T]) {.inline.} =
+  for operation in query.operations:
+    case operation.kind:
+    of RemoveEntity:
+      world.consolidateRemoveEntity(operation.id)
+    of AddComponents:
+      world.consolidateAddComponents(operation.id, operation.addersById)
+    of RemoveComponents:
+      world.consolidateRemoveComponents(operation.id, operation.compIdsToRemove)
+
+  query.operations.setLen(0)
+
+
+proc removesComponent(operation: Operation, componentId: ComponentId): bool =
+  if operation.kind == RemoveEntity:
+    return true
+
+  if operation.kind != RemoveComponents:
+    return false
+
+  componentId in operation.compIdsToRemove
+
+
 iterator query*[T: tuple](world: var World, query: var Query[T]): T.accessTuple =
   ## Query for components on entities. Components are matched based on the query's type parameter.
   ## 
@@ -766,19 +859,12 @@ iterator query*[T: tuple](world: var World, query: var Query[T]): T.accessTuple 
 
   for archetypeId in query.matchedArchetypes:
     let archetype = world.archetypes[archetypeId]
+    let componentColumns {.used.} = world.buildComponentColumns(typeof T, archetype)
+
     for archetypeEntityId in archetype.entities:
-      yield world.buildAccessTuple(typeof T, archetype, archetypeEntityId)
+      yield buildColumnAccessTuple(typeof T, componentColumns, archetypeEntityId)
 
-  for operation in query.operations:
-    case operation.kind:
-    of RemoveEntity:
-      world.consolidateRemoveEntity(operation.id)
-    of AddComponents:
-      world.consolidateAddComponents(operation.id, operation.addersById)
-    of RemoveComponents:
-      world.consolidateRemoveComponents(operation.id, operation.compIdsToRemove)
-
-  query.operations.setLen(0)
+  world.applyQueryOperations(query)
 
 
 iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T).accessTuple =
@@ -805,16 +891,25 @@ iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T)
 
   checkNotATuple(T)
   var ofType {.global.}: Query[(Meta, T)]
-  var ids : seq[EntityId] = @[]
+  var ids: seq[EntityId] = @[]
+  let metaComponentId = world.componentIdFrom Meta
+  let componentId = world.componentIdFrom T
 
-  for (meta, component) in world.query(ofType):
-    for operation in meta.operations:
-      if operation.kind == RemoveEntity:
-        ids.add meta.id
-        break
-      elif operation.kind == RemoveComponents and world.componentIdFrom(T) in operation.compIdsToRemove:
-        ids.add meta.id
-        break
+  world.updateQuery(ofType)
+
+  for archetypeId in ofType.matchedArchetypes:
+    let archetype = world.archetypes[archetypeId]
+    let metaComponents = cast[EcsSeq[Meta]](archetype.componentLists[metaComponentId])
+
+    for archetypeEntityId in metaComponents.ids:
+      let meta = addr metaComponents[archetypeEntityId]
+
+      for operation in meta[].operations:
+        if operation.removesComponent(componentId):
+          ids.add meta[].id
+          break
+
+  world.applyQueryOperations(ofType)
 
   for id in ids:
     let entity = world.entities[id.value]

@@ -27,9 +27,13 @@ type Getter* =
 
 
 iterator ids*(self: EcsSeqAny): int =
-  for index in 0..<self.deleted.len:
-    if not self.deleted[index]:
+  if self.free.len == 0:
+    for index in 0..<self.deleted.len:
       yield index
+  else:
+    for index in 0..<self.deleted.len:
+      if not self.deleted[index]:
+        yield index
 
 
 proc add*[T](self: EcsSeq[T], item: sink T): int =

@@ -1,5 +1,5 @@
 # VEP-3 - queryForRemoval Scan Copies T
-**Status:** Open
+**Status:** Closed
 
 
 ## Bug

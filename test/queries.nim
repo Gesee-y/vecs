@@ -4,6 +4,26 @@
 import unittest, sets
 import ../src/[examples, vecs]
 
+
+type ReadCopyProbe = object
+  value: int
+
+
+type WriteProbe = object
+  value: int
+
+
+type QueryTag = object
+
+
+var componentCopyCount = 0
+
+
+proc `=copy`(target: var ReadCopyProbe, source: ReadCopyProbe) =
+  target.value = source.value
+  inc componentCopyCount
+
+
 suite "Queries should":
   setup:
     var world = World()
@@ -50,6 +70,30 @@ suite "Queries should":
         fail()
 
 
+  test "query optional components":
+    world.add(marcusId, Weapon(name: "Sword", attack: 10), Immediate)
+    var query: Query[(Meta, Opt[Weapon])]
+    var foundCount = 0
+    var weaponCount = 0
+    var missingCount = 0
+
+    for (meta, weapon) in world.query(query):
+      inc foundCount
+
+      weapon.isSomething:
+        inc weaponCount
+        check meta.id == marcusId
+        check value.name == "Sword"
+
+      weapon.isNothing:
+        inc missingCount
+        check meta.id != marcusId
+
+    check foundCount == 3
+    check weaponCount == 1
+    check missingCount == 2
+
+
   test "query for deferred component addition":
     var sword = Weapon(name: "Excalibur", attack: 25)
     world.add((sword,))
@@ -84,3 +128,92 @@ suite "Queries should":
 
     checkpoint("Nothing should be yielded from removal query when component is added.")
     check removalCount == 0
+
+
+  test "avoid copying components while scanning removals":
+    var removalWorld = World()
+    discard removalWorld.add((ReadCopyProbe(value: 1),), Immediate)
+    let removedId = removalWorld.add((ReadCopyProbe(value: 2),), Immediate)
+    discard removalWorld.add((ReadCopyProbe(value: 3),), Immediate)
+
+    removalWorld.remove(removedId, ReadCopyProbe)
+    componentCopyCount = 0
+
+    var foundCount = 0
+
+    for (meta, readProbe) in removalWorld.queryForRemoval(ReadCopyProbe):
+      inc foundCount
+      check meta.id == removedId
+      check readProbe.value == 2
+
+    check foundCount == 1
+    check componentCopyCount == 1
+
+
+  test "preserve value semantics for read access":
+    discard world.add((ReadCopyProbe(value: 7),), Immediate)
+    var query: Query[(ReadCopyProbe,)]
+    var foundCount = 0
+
+    componentCopyCount = 0
+
+    for (readProbe,) in world.query(query):
+      inc foundCount
+      check readProbe.value == 7
+
+    check foundCount == 1
+    check componentCopyCount == 1
+
+
+  test "preserve read snapshots for duplicate write access":
+    let entityId = world.add((WriteProbe(value: 5),), Immediate)
+    var query: Query[(WriteProbe, Write[WriteProbe])]
+
+    for (snapshot, writeProbe) in world.query(query):
+      writeProbe.value += 1
+      check snapshot.value == 5
+
+    check world.read(entityId, WriteProbe).value == 6
+
+
+  test "query after deleting the first archetype row":
+    var fragmentedWorld = World()
+    let removedId = fragmentedWorld.add((Health(health: 10),), Immediate)
+    let retainedId = fragmentedWorld.add((Health(health: 20),), Immediate)
+
+    fragmentedWorld.remove(removedId, Immediate)
+
+    var query: Query[(Meta, Write[Health])]
+    var foundCount = 0
+
+    for (meta, health) in fragmentedWorld.query(query):
+      inc foundCount
+      check meta.id == retainedId
+      health.health += 1
+
+    check foundCount == 1
+    check fragmentedWorld.read(retainedId, Health).health == 21
+
+
+  test "query tag components":
+    discard world.add((QueryTag(),), Immediate)
+
+    var query: Query[(QueryTag,)]
+    var foundCount = 0
+
+    for (tag,) in world.query(query):
+      discard tag
+      inc foundCount
+
+    check foundCount == 1
+
+
+  test "support queries containing only an exclusion":
+    var query: Query[(Not[Weapon],)]
+    var foundCount = 0
+
+    for emptyTuple in world.query(query):
+      discard emptyTuple
+      inc foundCount
+
+    check foundCount == 3
