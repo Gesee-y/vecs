@@ -9,18 +9,18 @@ The main design differences between `vecs` and `yeacs` are in the implementation
 - `vecs` approaches ECS with a collection for each component in the archetype, while `yeacs` instead uses a single collection of tuples of components for each archetype.
 
 
-## Documentation
-The API reference is available [here](https://rowdaboat.github.io/vecs/).
-
-
-### Basic Usage
+## Installation
+Add `vecs` to your `.nimble` file by its repository url:
 ```nim
-# Import the library
-import vecs
+requires "https://github.com/RowDaBoat/vecs"
 ```
+
+
+## At a glance
 ```nim
-# Declare some components, components are regular value objects.
-type Charcter = object
+import vecs
+
+type Character = object
   name*: string
   class*: string
 
@@ -28,174 +28,41 @@ type Health = object
   current*: int
   max*: int
 
-type Weapon = object
-  name*: string
-  attack*: int
-```
-```nim
-# Create a world
+type Poisoned = object
+
 var world = World()
-```
-```nim
-# Add an entity with components
-let entityId = world.add (
+
+world.add((
   Character(name: "Marcus", class: "Warrior"),
-  Health(current: 120, max: 120)
-)
-```
-```nim
-# Get a component from an entity to read its values
-let health = world.read(entityId, Health)
-echo health.current " / " & health.max
-```
-```nim
-# Get a component from an entity with write access
-for health in world.write(entityId, Health):
-  health.current += 75
-```
-```nim
-# Read multiple components from an entity
-let (character, health) = world.read(entityId, (Character, Health))
-echo character.name & "'s health is: " & health.current
-```
-```nim
-# Write to multiple components from an entity
-for (character, health) in world.components(entityId, (Write[Character], Write[Health])):
-  character.name = "Happy " & character.name
-  health.current += 75
-```
-```nim
-# Query for components
-var characterWithSwordsQuery = Query[(Character, Write[Sword])]()
-for (character, sword) in world.query(characterWithSwordsQuery):
-  sword.attack += 10
-  echo character.name, "'s weapon ", sword.name, " reforged!"
-```
-```nim
-# Removing an entity
-world.remove entityId
-```
-```nim
-# Adding a component
-world.add(entityId, Shield(name: "Steel Shield", defense: 15))
-```
-```nim
-# Removing a component
-world.remove(entityId, Shield)
-```
-```nim
-# The `Meta` component is automatically added, and holds the `Id` of the entity.
-# This is useful for embedding references to other entities into components.
-let entityId = world.add((Character(name: "Leon", class: "Paladin"),), Immediate)
+  Health(current: 120, max: 120),
+  Poisoned()
+), Immediate)
 
-let meta = world.read(entityId, Meta):
-assert entityId == meta.id
+world.add((
+  Character(name: "Elena", class: "Mage"),
+  Health(current: 80, max: 80)
+), Immediate)
+
+var poisonedCharacters = Query[(Character, Write[Health], Poisoned)]()
+
+for (character, health, _) in world.query(poisonedCharacters):
+  health.current -= 10
+  echo character.name, " is poisoned: ", health.current, "/", health.max
 ```
 
 
-### Advanced querying
-```nim
-# Query components for writting
-var charactersWithHealth = Query[(Character, Write[Health])]()
-for (character, health) in world.query(charactersWithHealth):
-  health.current += 10
-```
-```nim
-# Query for optional components
-var charactersWithWeapons = Query[(Character, Opt[Weapon])]()
-for (character, weapon) in world.query(charactersWithWeapons):
-  weapon.isSmoething:
-    echo character.name, " has a weapon, ", weapon.name
-  weapon.isNothing:
-    echo character.name, " has no weapon"
-```
-```nim
-# Exclude components from a query
-var disarmedCharacters = Query[(Character, Not[Weapon])]()
-for (character,) in world.query(disarmedCharacters):
-  echo character.name, " has no weapon"
-```
+## Features
+- Components are plain value `object`s, no base type, no registration, no macros.
+- Archetype storage with a contiguous column per component type, for cache friendly iteration.
+- Cached queries, with `Write[T]`, `Opt[T]` and `Not[T]` to declare access and presence.
+- Add and remove immediately, deferred until `consolidate()`, or after a query finishes iterating.
+- Typed `Id[T]` references to other entities, safe to embed in components.
+- Snapshots of an entity's whole state, for undo/redo and duplication.
+- JSON and CBOR serialization, filtered by component type, with entity references preserved.
+- Multiple independent worlds, mergeable whole or in fragments, with ids remapped.
+- Typed event queues, emitted anywhere and collected by any system.
 
 
-### Snapshots
-Snapshots are useful for implementing features like Undo/Redo, Copy/Paste/Duplicate
-```nim
-# Take a snapshot of an entity's components at a point in time
-let snap = world.snapshot(entityId)
-```
-```nim
-# Restore the entity to its snapshot state
-# Modified components are reset, removed components are re-added,
-# components added after the snapshot are removed
-world.restore(snap)
-```
-```nim
-# Restore a snapshot onto a different entity — useful for copy/duplicate
-world.restore(snap, targetEntityId)
-```
-
-
-### Serialization
-Serialization takes a tuple of the component types to write, so derived or engine-owned components stay out of the output
-```nim
-# Serialize a world to CBOR, or to JSON
-let binary = world.serializeToBinary((Character, Health, Weapon))
-let text = world.serializeToText((Character, Health, Weapon))
-```
-```nim
-# Deserialize into a fresh world
-var restored = deserializeFromBinary(binary, (Character, Health, Weapon))
-```
-`Id[T]` and `EntityId` fields serialize as the entity id they refer to, and nested objects, `seq`s and fixed size arrays are walked through.
-
-
-### Adding worlds
-`add` copies entities between worlds, remapping the ids inside their components
-```nim
-# Merge a whole world into a populated one, e.g. right after deserializing it
-var loaded = deserializeFromBinary(binary, (Character, Health, Weapon))
-let mapping = world.add(loaded, (Character, Health, Weapon))
-```
-```nim
-# The returned mapping goes from the source's ids to the newly created ones
-let addedId = mapping[sourceId]
-```
-```nim
-# Copy only some entities, e.g. to lift a fragment out into a world of its own
-var fragment = World()
-discard fragment.add(world, @[entityId, childId], (Character, Health, Weapon))
-```
-Ids pointing at copied entities are remapped to their counterparts, ids pointing outside the copied set are invalidated. The source world is left unchanged.
-
-
-### Events
-```nim
-# Declare event types, events are regular value objects.
-type DamageEvent = object
-  amount: int
-
-type HealEvent = object
-  amount: int
-```
-```nim
-# Emit an event from anywhere in the game loop
-world.emit(DamageEvent(amount: 25))
-world.emit(HealEvent(amount: 10))
-```
-```nim
-# Collect and process events, the events can be collected multiple times
-for event in world.collect(DamageEvent):
-  echo "Damage dealt: ", event.amount
-```
-```nim
-# Each event type is isolated — collecting DamageEvent does not affect HealEvent
-for event in world.collect(HealEvent):
-  echo "Health restored: ", event.amount
-```
-```nim
-# Calling consolidate() drains all event queues
-world.consolidate()
-
-for event in world.collect(DamageEvent):
-  echo "Won't be called"
-```
+## Documentation
+- [Manual](manual.md), a guided tour of the library.
+- [API reference](https://rowdaboat.github.io/vecs/), generated from the source.

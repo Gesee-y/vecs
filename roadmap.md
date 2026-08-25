@@ -23,7 +23,40 @@
   - [x] Without Id-remapping
   - [x] With Id-remapping
 - [x] Binary serialization
+- [ ] Optimization pass
+  - [x] Query iteration
+  - [ ] Add entity
+  - [ ] Remove entity
+  - [ ] Add component
+  - [ ] Remove component
+- [ ] To test
+  - [ ] Serialization
+    - [ ] Only listed components are output, unlisted ones are absent.
+    - [ ] Deserializing fewer component types than were written skips the unknown ones.
+    - [ ] Deserializing a component that gained or lost fields keeps the known ones and skips the rest.
+    - [ ] Deserializing a field whose type changed keeps the rest of the component and leaves it at default.
+    - [ ] `{.transient.}` fields are not output and set to default on read.
+  - [ ] Error paths
+    - [ ] Accessing an entity that does not exist raises.
+    - [ ] Accessing a component the entity does not hold raises.
+    - [ ] Accessing a default constructed `EntityId` raises.
+  - [ ] Entities
+    - [ ] `addWithSpecificId` creates the entity under the requested id.
+    - [ ] `addWithSpecificId` raises when the id is already taken.
+  - [ ] Archetypes
+    - [ ] `cleanupEmptyArchetypes` drops archetypes left with no entities and keeps populated ones.
+    - [ ] A query stops yielding archetypes removed by `cleanupEmptyArchetypes`.
+    - [ ] The `archetypes` iterator yields every archetype in the world.
+  - [ ] Ids as references
+    - [ ] `remove` accepts an `Id[T]`, for a single component and for a tuple.
+- [ ] Tolerate field type changes on read
+  - [ ] Binary, check the value's cbor major type against the field's type before unpacking
+  - [ ] Text, check the json node's kind against the field's type before converting
+  - [ ] A field whose type no longer matches is skipped and left at its default
+  - [ ] A mismatched field does not abort its component, its entity, or the rest of the world
+  - [ ] Nested objects, `seq`s and fixed size arrays recover the same way
 - [ ] glTF serialization
+- [ ] Implement a Has[T] operation that queries for components without accessing them?
 - [ ] Integrate with [reploid](http://github.com/RowDaBoat/reploid)
 - [ ] Convenience procs
   - [ ] `component` and `components` accept a list of entity ids
