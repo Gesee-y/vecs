@@ -16,16 +16,19 @@
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA3XAAAN1wFCKJt4AAAAB3RJTUUH4QQQEwksSS9ZWwAAAk1JREFUWMPtll2ITVEUx39nn/O7Y5qR8f05wtCUUr6ZIS++8pEnkZInPImneaCQ5METNdOkeFBKUhMPRIkHKfEuUZSUlGlKPN2TrgfncpvmnntnmlEyq1Z7t89/rf9a6+y99oZxGZf/XeIq61EdtgKXgdXA0xrYAvBjOIF1AI9zvjcC74BSpndrJPkBWDScTF8Aa4E3wDlgHbASaANmVqlcCnwHvgDvgVfAJ+AikAAvgfVZwLnSVZHZaOuKoQi3ZOMi4NkYkpe1p4J7A8BpYAD49hfIy/oqG0+hLomiKP2L5L+1ubn5115S+3OAn4EnwBlgMzCjyt6ZAnQCJ4A7wOs88iRJHvw50HoujuPBoCKwHWiosy8MdfZnAdcHk8dxXFJ3VQbQlCTJvRBCGdRbD4M6uc5glpY3eAihpN5S5w12diSEcCCEcKUO4ljdr15T76ur1FDDLIQQ3qv71EdDOe3Kxj3leRXyk+pxdWnFWod6Wt2bY3de3aSuUHcPBVimHs7mK9WrmeOF6lR1o9qnzskh2ar2qm1qizpfXaPeVGdlmGN5pb09qMxz1Xb1kLqgzn1RyH7JUXW52lr5e/Kqi9qpto7V1atuUzfnARrV7jEib1T76gG2qxdGmXyiekkt1GswPTtek0aBfJp6YySGBfWg2tPQ0FAYgf1stUfdmdcjarbYJEniKIq6gY/Aw+zWHAC+p2labGpqiorFYgGYCEzN7oQdQClN07O1/EfDyGgC0ALMBdYAi4FyK+4H3gLPsxfR1zRNi+NP7nH5J+QntnXe5B5mpfQAAAAASUVORK5CYII=">
 
 <!-- CSS -->
-<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.6">
+<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.10">
 
 <!-- JS -->
-<script type="text/javascript" src="dochack.js?v=2.2.6"></script>
+<script type="text/javascript" src="dochack.js?v=2.2.10"></script>
 </head>
 <body>
   <div class="document" id="documentId">
+    <input type="checkbox" id="nav-toggle" hidden>
+    <label for="nav-toggle" id="nav-burger">&#9776;</label>
+    <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
       <h1 class="title">Index</h1>
-      Modules: <a href="archetype.html">archetype</a>, <a href="archetypeid.html">archetypeid</a>, <a href="componentid.html">componentid</a>, <a href="components.html">components</a>, <a href="ecsseq.html">ecsseq</a>, <a href="entity.html">entity</a>, <a href="entityid.html">entityid</a>, <a href="events.html">events</a>, <a href="id.html">id</a>, <a href="operationmodes.html">operationmodes</a>, <a href="operations.html">operations</a>, <a href="queries.html">queries</a>, <a href="serialization.html">serialization</a>, <a href="show.html">show</a>, <a href="texttable.html">texttable</a>, <a href="vecs.html">vecs</a>, <a href="world.html">world</a>.<br/><p /><h2>API symbols</h2>
+      Modules: <a href="addworld.html">addworld</a>, <a href="archetype.html">archetype</a>, <a href="archetypeid.html">archetypeid</a>, <a href="componentid.html">componentid</a>, <a href="components.html">components</a>, <a href="ecsseq.html">ecsseq</a>, <a href="entity.html">entity</a>, <a href="entityid.html">entityid</a>, <a href="events.html">events</a>, <a href="id.html">id</a>, <a href="operationmodes.html">operationmodes</a>, <a href="operations.html">operations</a>, <a href="queries.html">queries</a>, <a href="serialization.html">serialization</a>, <a href="show.html">show</a>, <a href="texttable.html">texttable</a>, <a href="vecs.html">vecs</a>, <a href="world.html">world</a>.<br/><p /><h2>API symbols</h2>
 <dl><dt><a name="%60%24%60" href="#%60%24%60"><span>`$`:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="componentid: proc `$`(id: ComponentId): string" href="componentid.html#%24%2CComponentId">componentid: proc `$`(id: ComponentId): string</a></li>
@@ -56,6 +59,14 @@
           </ul></dd>
 <dt><a name="add" href="#add"><span>add:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
+          data-doc-search-tag="addworld: proc add[T: tuple](world: var World; other: var World; ids: seq[EntityId];
+              components: typedesc[T]): Table[EntityId, EntityId]" href="addworld.html#add%2CWorld%2CWorld%2Cseq%5BEntityId%5D%2Ctypedesc%5BT%5D">addworld: proc add[T: tuple](world: var World; other: var World; ids: seq[EntityId];
+              components: typedesc[T]): Table[EntityId, EntityId]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="addworld: proc add[T: tuple](world: var World; other: var World; components: typedesc[T]): Table[
+    EntityId, EntityId]" href="addworld.html#add%2CWorld%2CWorld%2Ctypedesc%5BT%5D">addworld: proc add[T: tuple](world: var World; other: var World; components: typedesc[T]): Table[
+    EntityId, EntityId]</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="archetype: proc add[T: tuple](archetype: var Archetype; components: sink T): int" href="archetype.html#add%2CArchetype%2CsinkT">archetype: proc add[T: tuple](archetype: var Archetype; components: sink T): int</a></li>
           <li><a class="reference external"
           data-doc-search-tag="archetype: proc add(archetype: var Archetype; adders: Table[ComponentId, Adder]): int" href="archetype.html#add%2CArchetype%2CTable%5BComponentId%2CAdder%5D">archetype: proc add(archetype: var Archetype; adders: Table[ComponentId, Adder]): int</a></li>
@@ -72,9 +83,17 @@
           <li><a class="reference external"
           data-doc-search-tag="world: proc add[T: tuple](world: var World; components: T; mode: OperationMode = Deferred): EntityId" href="world.html#add%2CWorld%2CT%2COperationMode">world: proc add[T: tuple](world: var World; components: T; mode: OperationMode = Deferred): EntityId</a></li>
           </ul></dd>
+<dt><a name="addAt" href="#addAt"><span>addAt:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="ecsseq: proc addAt[T](self: var EcsSeq[T]; index: int; value: T)" href="ecsseq.html#addAt%2CEcsSeq%5BT%5D%2Cint%2CT">ecsseq: proc addAt[T](self: var EcsSeq[T]; index: int; value: T)</a></li>
+          </ul></dd>
 <dt><a name="AddComponents" href="#AddComponents"><span>AddComponents:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="operations: OperationKind.AddComponents" href="operations.html#AddComponents">operations: OperationKind.AddComponents</a></li>
+          </ul></dd>
+<dt><a name="addEmpty" href="#addEmpty"><span>addEmpty:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="world: proc addEmpty(world: var World): EntityId" href="world.html#addEmpty%2CWorld">world: proc addEmpty(world: var World): EntityId</a></li>
           </ul></dd>
 <dt><a name="Adder" href="#Adder"><span>Adder:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -154,7 +173,9 @@
           <li><a class="reference external"
           data-doc-search-tag="id: template components[T: tuple](world: var World; id: Id[T]): auto" href="id.html#components.t%2CWorld%2CId%5BT%3A%20tuple%5D">id: template components[T: tuple](world: var World; id: Id[T]): auto</a></li>
           <li><a class="reference external"
-          data-doc-search-tag="world: iterator components[T: tuple](world: var World; id: EntityId; tup: typedesc[T]): tup.accessTuple" href="world.html#components.i%2CWorld%2CEntityId%2Ctypedesc%5BT%5D">world: iterator components[T: tuple](world: var World; id: EntityId; tup: typedesc[T]): tup.accessTuple</a></li>
+          data-doc-search-tag="world: iterator components[T: tuple](world: var World; id: EntityId; tup: typedesc[T]): accessTuple(
+    tup)" href="world.html#components.i%2CWorld%2CEntityId%2Ctypedesc%5BT%5D">world: iterator components[T: tuple](world: var World; id: EntityId; tup: typedesc[T]): accessTuple(
+    tup)</a></li>
           </ul></dd>
 <dt><a name="consolidate" href="#consolidate"><span>consolidate:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -188,6 +209,10 @@
 <li><a class="reference external"
           data-doc-search-tag="ecsseq: proc del(self: EcsSeqAny; index: int)" href="ecsseq.html#del%2CEcsSeqAny%2Cint">ecsseq: proc del(self: EcsSeqAny; index: int)</a></li>
           </ul></dd>
+<dt><a name="deserializeFromBinary" href="#deserializeFromBinary"><span>deserializeFromBinary:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="serialization: proc deserializeFromBinary[T: tuple](data: string; tup: typedesc[T]): World" href="serialization.html#deserializeFromBinary%2Cstring%2Ctypedesc%5BT%5D">serialization: proc deserializeFromBinary[T: tuple](data: string; tup: typedesc[T]): World</a></li>
+          </ul></dd>
 <dt><a name="deserializeFromText" href="#deserializeFromText"><span>deserializeFromText:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="serialization: proc deserializeFromText[T: tuple](text: string; tup: typedesc[T]): World" href="serialization.html#deserializeFromText%2Cstring%2Ctypedesc%5BT%5D">serialization: proc deserializeFromText[T: tuple](text: string; tup: typedesc[T]): World</a></li>
@@ -213,6 +238,10 @@
 <dt><a name="ecsSeqBuilder" href="#ecsSeqBuilder"><span>ecsSeqBuilder:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="ecsseq: proc ecsSeqBuilder[T](): Builder" href="ecsseq.html#ecsSeqBuilder">ecsseq: proc ecsSeqBuilder[T](): Builder</a></li>
+          </ul></dd>
+<dt><a name="ecsSeqGetter" href="#ecsSeqGetter"><span>ecsSeqGetter:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="ecsseq: proc ecsSeqGetter[T](): Getter" href="ecsseq.html#ecsSeqGetter">ecsseq: proc ecsSeqGetter[T](): Getter</a></li>
           </ul></dd>
 <dt><a name="ecsSeqMover" href="#ecsSeqMover"><span>ecsSeqMover:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -242,6 +271,10 @@
 <li><a class="reference external"
           data-doc-search-tag="id: proc entityId[T](id: Id[T]): EntityId" href="id.html#entityId%2CId%5BT%5D">id: proc entityId[T](id: Id[T]): EntityId</a></li>
           </ul></dd>
+<dt><a name="entityId%3D" href="#entityId%3D"><span>entityId=:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="id: proc entityId=[T](id: var Id[T]; entityId: EntityId)" href="id.html#entityId%3D%2CId%5BT%5D%2CEntityId">id: proc entityId=[T](id: var Id[T]; entityId: EntityId)</a></li>
+          </ul></dd>
 <dt><a name="EventKind" href="#EventKind"><span>EventKind:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="events: type EventKind" href="events.html#EventKind">events: type EventKind</a></li>
@@ -265,6 +298,14 @@
 <dt><a name="fieldTypes" href="#fieldTypes"><span>fieldTypes:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="archetype: macro fieldTypes(tup: typed; body: untyped): untyped" href="archetype.html#fieldTypes.m%2Ctyped%2Cuntyped">archetype: macro fieldTypes(tup: typed; body: untyped): untyped</a></li>
+          </ul></dd>
+<dt><a name="fromJsonHook" href="#fromJsonHook"><span>fromJsonHook:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="serialization: proc fromJsonHook[T](id: var Id[T]; jsonNode: JsonNode; opt = Joptions())" href="serialization.html#fromJsonHook%2CId%5BT%5D%2CJsonNode">serialization: proc fromJsonHook[T](id: var Id[T]; jsonNode: JsonNode; opt = Joptions())</a></li>
+          </ul></dd>
+<dt><a name="Getter" href="#Getter"><span>Getter:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="ecsseq: type Getter" href="ecsseq.html#Getter">ecsseq: type Getter</a></li>
           </ul></dd>
 <dt><a name="has" href="#has"><span>has:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -444,6 +485,14 @@
 <li><a class="reference external"
           data-doc-search-tag="queries: proc reset[T: tuple](query: var Query[T]; version: int)" href="queries.html#reset%2CQuery%5BT%3A%20tuple%5D%2Cint">queries: proc reset[T: tuple](query: var Query[T]; version: int)</a></li>
           </ul></dd>
+<dt><a name="restore" href="#restore"><span>restore:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="world: proc restore(world: var World; snap: Snapshot; id: EntityId = EntityId())" href="world.html#restore%2CWorld%2CSnapshot%2CEntityId">world: proc restore(world: var World; snap: Snapshot; id: EntityId = EntityId())</a></li>
+          </ul></dd>
+<dt><a name="serializeToBinary" href="#serializeToBinary"><span>serializeToBinary:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="serialization: proc serializeToBinary[T: tuple](world: var World; tup: typedesc[T]): string" href="serialization.html#serializeToBinary%2CWorld%2Ctypedesc%5BT%5D">serialization: proc serializeToBinary[T: tuple](world: var World; tup: typedesc[T]): string</a></li>
+          </ul></dd>
 <dt><a name="serializeToText" href="#serializeToText"><span>serializeToText:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="serialization: proc serializeToText[T: tuple](world: var World; tup: typedesc[T]): string" href="serialization.html#serializeToText%2CWorld%2Ctypedesc%5BT%5D">serialization: proc serializeToText[T: tuple](world: var World; tup: typedesc[T]): string</a></li>
@@ -451,6 +500,14 @@
 <dt><a name="show" href="#show"><span>show:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="show: proc show[T: tuple](world: var World; tupleDesc: typedesc[T]; maxWidth: int = 20): string" href="show.html#show%2CWorld%2Ctypedesc%5BT%5D%2Cint">show: proc show[T: tuple](world: var World; tupleDesc: typedesc[T]; maxWidth: int = 20): string</a></li>
+          </ul></dd>
+<dt><a name="Snapshot" href="#Snapshot"><span>Snapshot:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="world: type Snapshot" href="world.html#Snapshot">world: type Snapshot</a></li>
+          </ul></dd>
+<dt><a name="snapshot" href="#snapshot"><span>snapshot:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="world: proc snapshot(world: var World; id: EntityId): Snapshot" href="world.html#snapshot%2CWorld%2CEntityId">world: proc snapshot(world: var World; id: EntityId): Snapshot</a></li>
           </ul></dd>
 <dt><a name="Spec" href="#Spec"><span>Spec:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -463,6 +520,14 @@
 <dt><a name="toComponentId" href="#toComponentId"><span>toComponentId:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="componentid: macro toComponentId[T](typ: typedesc[T]): ComponentId" href="componentid.html#toComponentId.m%2Ctypedesc%5BT%5D">componentid: macro toComponentId[T](typ: typedesc[T]): ComponentId</a></li>
+          </ul></dd>
+<dt><a name="toJsonHook" href="#toJsonHook"><span>toJsonHook:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="serialization: proc toJsonHook[T](id: Id[T]; opt = initToJsonOptions()): JsonNode" href="serialization.html#toJsonHook%2CId%5BT%5D">serialization: proc toJsonHook[T](id: Id[T]; opt = initToJsonOptions()): JsonNode</a></li>
+          </ul></dd>
+<dt><a name="transient" href="#transient"><span>transient:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="serialization: template transient()" href="serialization.html#transient.t">serialization: template transient()</a></li>
           </ul></dd>
 <dt><a name="unroll" href="#unroll"><span>unroll:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -496,7 +561,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-03-31 12:57:17 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-08-26 02:28:34 UTC</small>
       </div>
     </div>
   </div>

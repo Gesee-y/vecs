@@ -1,4 +1,4 @@
-nimTitle	queries	queries.html	module src/queries		0
+nimTitle	queries	queries.html	module queries		0
 nim	Opt	queries.html#Opt	type Opt		8
 nim	Not	queries.html#Not	object Not		11
 nim	Write	queries.html#Write	object Write		15

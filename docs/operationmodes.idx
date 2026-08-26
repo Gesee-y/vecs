@@ -1,4 +1,4 @@
-nimTitle	operationmodes	operationmodes.html	module src/operationmodes		0
+nimTitle	operationmodes	operationmodes.html	module operationmodes		0
 nim	DeferredMode	operationmodes.html#DeferredMode	OperationModeKind.DeferredMode		8
 nim	ImmediateMode	operationmodes.html#ImmediateMode	OperationModeKind.ImmediateMode		8
 nim	AfterMode	operationmodes.html#AfterMode	OperationModeKind.AfterMode		8

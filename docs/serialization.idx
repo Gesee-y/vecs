@@ -1,4 +1,9 @@
-nimTitle	serialization	serialization.html	module src/serialization		0
-nim	createEntityTable	serialization.html#createEntityTable,World,typedesc[T]	proc createEntityTable[T: tuple](world: var World; tup: typedesc[T]): Table[EntityId,\n    seq[JsonNode]]		10
-nim	serializeToText	serialization.html#serializeToText,World,typedesc[T]	proc serializeToText[T: tuple](world: var World; tup: typedesc[T]): string		59
-nim	deserializeFromText	serialization.html#deserializeFromText,string,typedesc[T]	proc deserializeFromText[T: tuple](text: string; tup: typedesc[T]): World		76
+nimTitle	serialization	serialization.html	module serialization		0
+nim	transient	serialization.html#transient.t	template transient()		14
+nim	toJsonHook	serialization.html#toJsonHook,Id[T]	proc toJsonHook[T](id: Id[T]; opt = initToJsonOptions()): JsonNode		19
+nim	fromJsonHook	serialization.html#fromJsonHook,Id[T],JsonNode	proc fromJsonHook[T](id: var Id[T]; jsonNode: JsonNode; opt = Joptions())		23
+nim	createEntityTable	serialization.html#createEntityTable,World,typedesc[T]	proc createEntityTable[T: tuple](world: var World; tup: typedesc[T]): Table[EntityId,\n    seq[JsonNode]]		71
+nim	serializeToText	serialization.html#serializeToText,World,typedesc[T]	proc serializeToText[T: tuple](world: var World; tup: typedesc[T]): string		85
+nim	deserializeFromText	serialization.html#deserializeFromText,string,typedesc[T]	proc deserializeFromText[T: tuple](text: string; tup: typedesc[T]): World		102
+nim	serializeToBinary	serialization.html#serializeToBinary,World,typedesc[T]	proc serializeToBinary[T: tuple](world: var World; tup: typedesc[T]): string		313
+nim	deserializeFromBinary	serialization.html#deserializeFromBinary,string,typedesc[T]	proc deserializeFromBinary[T: tuple](data: string; tup: typedesc[T]): World		412

@@ -1,4 +1,4 @@
-nimTitle	archetype	archetype.html	module src/archetype		0
+nimTitle	archetype	archetype.html	module archetype		0
 nim	Archetype	archetype.html#Archetype	type Archetype		10
 nim	fieldTypes	archetype.html#fieldTypes.m,typed,untyped	macro fieldTypes(tup: typed; body: untyped): untyped		18
 nim	makeArchetype	archetype.html#makeArchetype,seq[ComponentId],seq[Builder],seq[Mover]	proc makeArchetype(componentIds: seq[ComponentId]; builders: seq[Builder];\n              movers: seq[Mover]): Archetype		35

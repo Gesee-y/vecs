@@ -1,4 +1,4 @@
-nimTitle	operations	operations.html	module src/operations		0
+nimTitle	operations	operations.html	module operations		0
 nim	RemoveEntity	operations.html#RemoveEntity	OperationKind.RemoveEntity		7
 nim	AddComponents	operations.html#AddComponents	OperationKind.AddComponents		7
 nim	RemoveComponents	operations.html#RemoveComponents	OperationKind.RemoveComponents		7

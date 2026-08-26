@@ -1,4 +1,4 @@
-nimTitle	componentid	componentid.html	module src/componentid		0
+nimTitle	componentid	componentid.html	module componentid		0
 nim	ArchetypeWords	componentid.html#ArchetypeWords	const ArchetypeWords		4
 nim	ComponentId	componentid.html#ComponentId	type ComponentId		7
 nim	hash	componentid.html#hash,ComponentId	proc hash(id: ComponentId): Hash		10

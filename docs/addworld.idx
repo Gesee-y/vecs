@@ -1,0 +1,4 @@
+nimTitle	addworld	addworld.html	module addworld		0
+nim	add	addworld.html#add,World,World,seq[EntityId],typedesc[T]	proc add[T: tuple](world: var World; other: var World; ids: seq[EntityId];\n              components: typedesc[T]): Table[EntityId, EntityId]		55
+nim	add	addworld.html#add,World,World,typedesc[T]	proc add[T: tuple](world: var World; other: var World; components: typedesc[T]): Table[\n    EntityId, EntityId]		68
+nimgrp	add	addworld.html#add-procs-all	proc		55

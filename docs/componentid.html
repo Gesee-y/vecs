@@ -5,7 +5,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>src/componentid</title>
+<title>componentid</title>
 
 <!-- Google fonts -->
 <link href='https://fonts.googleapis.com/css?family=Lato:400,600,900' rel='stylesheet' type='text/css'/>
@@ -16,15 +16,18 @@
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA3XAAAN1wFCKJt4AAAAB3RJTUUH4QQQEwksSS9ZWwAAAk1JREFUWMPtll2ITVEUx39nn/O7Y5qR8f05wtCUUr6ZIS++8pEnkZInPImneaCQ5METNdOkeFBKUhMPRIkHKfEuUZSUlGlKPN2TrgfncpvmnntnmlEyq1Z7t89/rf9a6+y99oZxGZf/XeIq61EdtgKXgdXA0xrYAvBjOIF1AI9zvjcC74BSpndrJPkBWDScTF8Aa4E3wDlgHbASaANmVqlcCnwHvgDvgVfAJ+AikAAvgfVZwLnSVZHZaOuKoQi3ZOMi4NkYkpe1p4J7A8BpYAD49hfIy/oqG0+hLomiKP2L5L+1ubn5115S+3OAn4EnwBlgMzCjyt6ZAnQCJ4A7wOs88iRJHvw50HoujuPBoCKwHWiosy8MdfZnAdcHk8dxXFJ3VQbQlCTJvRBCGdRbD4M6uc5glpY3eAihpN5S5w12diSEcCCEcKUO4ljdr15T76ur1FDDLIQQ3qv71EdDOe3Kxj3leRXyk+pxdWnFWod6Wt2bY3de3aSuUHcPBVimHs7mK9WrmeOF6lR1o9qnzskh2ar2qm1qizpfXaPeVGdlmGN5pb09qMxz1Xb1kLqgzn1RyH7JUXW52lr5e/Kqi9qpto7V1atuUzfnARrV7jEib1T76gG2qxdGmXyiekkt1GswPTtek0aBfJp6YySGBfWg2tPQ0FAYgf1stUfdmdcjarbYJEniKIq6gY/Aw+zWHAC+p2labGpqiorFYgGYCEzN7oQdQClN07O1/EfDyGgC0ALMBdYAi4FyK+4H3gLPsxfR1zRNi+NP7nH5J+QntnXe5B5mpfQAAAAASUVORK5CYII=">
 
 <!-- CSS -->
-<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.6">
+<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.10">
 
 <!-- JS -->
-<script type="text/javascript" src="dochack.js?v=2.2.6"></script>
+<script type="text/javascript" src="dochack.js?v=2.2.10"></script>
 </head>
 <body>
   <div class="document" id="documentId">
+    <input type="checkbox" id="nav-toggle" hidden>
+    <label for="nav-toggle" id="nav-burger">&#9776;</label>
+    <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
-      <h1 class="title">src/componentid</h1>
+      <h1 class="title">componentid</h1>
       <div class="row">
   <div class="three columns">
     <div class="theme-select-wrapper">
@@ -126,7 +129,7 @@
   <h1><a class="toc-backref" href="#7">Types</a></h1>
   <dl class="item">
     <div id="ComponentId">
-  <dt><pre><a href="componentid.html#ComponentId"><span class="Identifier">ComponentId</span></a> <span class="Other">=</span> <span class="Keyword">distinct</span> <span class="Identifier">uint</span></pre></dt>
+  <dt><pre><a href="#ComponentId"><span class="Identifier">ComponentId</span></a> <span class="Other">=</span> <span class="Keyword">distinct</span> <span class="Identifier">uint</span></pre></dt>
   <dd>
     
     
@@ -142,7 +145,7 @@
   <h1><a class="toc-backref" href="#8">Vars</a></h1>
   <dl class="item">
     <div id="componentIds">
-  <dt><pre><a href="componentid.html#componentIds"><span class="Identifier">componentIds</span></a> {.<span class="Identifier">compileTime</span>.} <span class="Other">=</span> <span class="Identifier">Table</span><span class="Other">[</span><span class="Identifier">int</span><span class="Other">,</span> <a href="componentid.html#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">]</span><span class="Other">(</span><span class="Other">)</span></pre></dt>
+  <dt><pre><a href="#componentIds"><span class="Identifier">componentIds</span></a> {.<span class="Identifier">compileTime</span>.} <span class="Other">=</span> <span class="Identifier">Table</span><span class="Other">[</span><span class="Identifier">int</span><span class="Other">,</span> <a href="#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">]</span><span class="Other">(</span><span class="Other">)</span></pre></dt>
   <dd>
     
     
@@ -152,7 +155,7 @@
   </dd>
 </div>
 <div id="nextComponentId">
-  <dt><pre><a href="componentid.html#nextComponentId"><span class="Identifier">nextComponentId</span></a> {.<span class="Identifier">compileTime</span>.} <span class="Other">=</span> <span class="DecNumber">0'u64</span></pre></dt>
+  <dt><pre><a href="#nextComponentId"><span class="Identifier">nextComponentId</span></a> {.<span class="Identifier">compileTime</span>.} <span class="Other">=</span> <span class="DecNumber">0'u64</span></pre></dt>
   <dd>
     
     
@@ -168,7 +171,7 @@
   <h1><a class="toc-backref" href="#10">Consts</a></h1>
   <dl class="item">
     <div id="ArchetypeWords">
-  <dt><pre><a href="componentid.html#ArchetypeWords"><span class="Identifier">ArchetypeWords</span></a> {.<span class="Identifier">intdefine</span>.} <span class="Other">=</span> <span class="DecNumber">1</span></pre></dt>
+  <dt><pre><a href="#ArchetypeWords"><span class="Identifier">ArchetypeWords</span></a> {.<span class="Identifier">intdefine</span>.} <span class="Other">=</span> <span class="DecNumber">1</span></pre></dt>
   <dd>
     
     
@@ -185,7 +188,7 @@
   <dl class="item">
     <div id="$-procs-all">
   <div id="$,ComponentId">
-  <dt><pre><span class="Keyword">proc</span> <a href="#%24%2CComponentId"><span class="Identifier">`$`</span></a><span class="Other">(</span><span class="Identifier">id</span><span class="Other">:</span> <a href="componentid.html#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#%24%2CComponentId"><span class="Identifier">`$`</span></a><span class="Other">(</span><span class="Identifier">id</span><span class="Other">:</span> <a href="#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">string</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     
@@ -198,7 +201,7 @@
 </div>
 <div id="==-procs-all">
   <div id="==,ComponentId,ComponentId">
-  <dt><pre><span class="Keyword">proc</span> <a href="#%3D%3D%2CComponentId%2CComponentId"><span class="Identifier">`==`</span></a><span class="Other">(</span><span class="Identifier">a</span><span class="Other">,</span> <span class="Identifier">b</span><span class="Other">:</span> <a href="componentid.html#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span class="Identifier">borrow</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#%3D%3D%2CComponentId%2CComponentId"><span class="Identifier">`==`</span></a><span class="Other">(</span><span class="Identifier">a</span><span class="Other">,</span> <span class="Identifier">b</span><span class="Other">:</span> <a href="#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span class="Identifier">borrow</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     
@@ -211,7 +214,7 @@
 </div>
 <div id="hash-procs-all">
   <div id="hash,ComponentId">
-  <dt><pre><span class="Keyword">proc</span> <a href="#hash%2CComponentId"><span class="Identifier">hash</span></a><span class="Other">(</span><span class="Identifier">id</span><span class="Other">:</span> <a href="componentid.html#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Hash</span> {.<span class="Identifier">borrow</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#hash%2CComponentId"><span class="Identifier">hash</span></a><span class="Other">(</span><span class="Identifier">id</span><span class="Other">:</span> <a href="#ComponentId"><span class="Identifier">ComponentId</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Hash</span> {.<span class="Identifier">borrow</span><span class="Other">,</span> <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     
@@ -230,7 +233,7 @@
   <dl class="item">
     <div id="toComponentId-macros-all">
   <div id="toComponentId.m,typedesc[T]">
-  <dt><pre><span class="Keyword">macro</span> <a href="#toComponentId.m%2Ctypedesc%5BT%5D"><span class="Identifier">toComponentId</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">typ</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="componentid.html#ComponentId"><span class="Identifier">ComponentId</span></a></pre></dt>
+  <dt><pre><span class="Keyword">macro</span> <a href="#toComponentId.m%2Ctypedesc%5BT%5D"><span class="Identifier">toComponentId</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">typ</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <a href="#ComponentId"><span class="Identifier">ComponentId</span></a></pre></dt>
   <dd>
     
     
@@ -251,7 +254,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-03-31 12:57:13 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-08-26 02:28:33 UTC</small>
       </div>
     </div>
   </div>

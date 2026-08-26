@@ -1,4 +1,4 @@
-nimTitle	archetypeid	archetypeid.html	module src/archetypeid		0
+nimTitle	archetypeid	archetypeid.html	module archetypeid		0
 nim	unroll	archetypeid.html#unroll.m,untyped,staticint,staticint,untyped	macro unroll(idx: untyped; lo, hi: static int; body: untyped): untyped		15
 nim	ArchetypeWords	archetypeid.html#ArchetypeWords	const ArchetypeWords		21
 nim	ArchetypeId	archetypeid.html#ArchetypeId	object ArchetypeId		25

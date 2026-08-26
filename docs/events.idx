@@ -1,4 +1,4 @@
-nimTitle	events	events.html	module src/events		0
+nimTitle	events	events.html	module events		0
 nim	EventKind	events.html#EventKind	type EventKind		7
 nim	EventQueueBase	events.html#EventQueueBase	type EventQueueBase		10
 nim	EventQueue	events.html#EventQueue	type EventQueue		13
