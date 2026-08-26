@@ -1,12 +1,5 @@
 # vecs
-
-Vexel's ECS library for Nim👑, heavily inspired by [Beef🥩](https://github.com/beef331)'s [yeacs](https://github.com/beef331/nimtrest/blob/master/yeacs.nim), a lot of his ideas were used, and some of his macros were directly copied.
-
-`vecs`'s API aims to be mostly the same, with minor differences.
-
-The main design differences between `vecs` and `yeacs` are in the implementation:
-- `vecs` avoids manually copying memory, erasure is implemented by using abstract types, then casting to concrete types when needed. This simplifies book-keeping a bit, and goes easier on references, not needing to track move semantics.
-- `vecs` approaches ECS with a collection for each component in the archetype, while `yeacs` instead uses a single collection of tuples of components for each archetype.
+A fast, archetype-based ECS for Nim👑. Components are plain `object`s stored in contiguous columns for cache-friendly iteration, with cached queries, deferred structural changes, snapshots, and serialization built in. No base types nor registration for components is required.
 
 
 ## Installation
@@ -66,3 +59,7 @@ for (character, health, _) in world.query(poisonedCharacters):
 ## Documentation
 - [Manual](manual.md), a guided tour of the library.
 - [API reference](https://rowdaboat.github.io/vecs/), generated from the source.
+
+
+## Credits
+`vecs` began as a spin-off of [Beef🥩](https://github.com/beef331)'s [yeacs](https://github.com/beef331/nimtrest/blob/master/yeacs.nim). Its early API mirrored yeacs closely and some macros were adapted directly. It has since diverged: `vecs` erases components via abstract types cast to concrete ones (rather than memory copies), and stores one collection per component type per archetype instead of a single collection of component tuples.
