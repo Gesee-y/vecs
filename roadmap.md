@@ -35,7 +35,7 @@
     - [ ] Deserializing fewer component types than were written skips the unknown ones.
     - [ ] Deserializing a component that gained or lost fields keeps the known ones and skips the rest.
     - [ ] Deserializing a field whose type changed keeps the rest of the component and leaves it at default.
-    - [ ] `{.transient.}` fields are not output and set to default on read.
+    - [x] `{.transient.}` fields are not output and set to default on read.
   - [ ] Error paths
     - [ ] Accessing an entity that does not exist raises.
     - [ ] Accessing a component the entity does not hold raises.

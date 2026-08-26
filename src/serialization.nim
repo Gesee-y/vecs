@@ -55,10 +55,16 @@ iterator iteratetJsonComponents(json: JsonNode, world: var World): (EntityId, Js
       yield (id, jsonComponent, componentType)
 
 
+proc deleteTransientFields[T](jsonComponent: JsonNode, component: T) =
+  for name, value in fieldPairs(component):
+    when value.hasCustomPragma(transient):
+      jsonComponent.delete(name)
+
+
 proc addFromJson[T: tuple](world: var World, id: EntityId, jsonComponent: JsonNode, componentType: string, tup: typedesc[T]) =
   for name, value in fieldPairs default T:
     if $(typeof value) == componentType:
-      let componentToAdd = jsonComponent.jsonTo(typeof value)
+      let componentToAdd = jsonComponent.jsonTo(typeof value, Joptions(allowMissingKeys: true))
       world.add(id, componentToAdd, Immediate)
 
 
@@ -71,6 +77,7 @@ proc createEntityTable*[T: tuple](world: var World, tup: typedesc[T]): Table[Ent
         result[meta.id] = @[]
 
       var jsonComponent = toJson(component)
+      deleteTransientFields(jsonComponent, component)
       jsonComponent["*component"] = newJString($typeof value)
       result[meta.id].add jsonComponent
 

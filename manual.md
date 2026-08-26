@@ -10,13 +10,19 @@ Archetypes are created on demand, and adding or removing a component moves the e
 Queries cache the archetypes they match, so matching runs once per archetype instead of once per entity, and each iteration only examines the archetypes created since the last one. Keep a query alive rather than declaring it per call. `cleanupEmptyArchetypes()` is the only operation that invalidates those caches.
 
 
-## Basic Usage
+## Setup
+Import the library and create a world to hold the entities.
 ```nim
-# Import the library
 import vecs
 ```
 ```nim
-# Declare some components, components are regular value objects.
+var world = World()
+```
+
+
+## Components
+Components are regular value objects — just data, no behaviour.
+```nim
 type Character = object
   name*: string
   class*: string
@@ -33,61 +39,72 @@ type Shield = object
   name*: string
   defense*: int
 ```
+
+
+## Adding entities
+An entity is created from a tuple of components. `Immediate` applies the addition right away; the default `Deferred` mode holds it back until `consolidate()`.
 ```nim
-# Create a world
-var world = World()
-```
-```nim
-# Add an entity with components, `Immediate` applies the addition right away,
-# the default `Deferred` mode would hold it back until `consolidate()`.
 let entityId = world.add((
   Character(name: "Marcus", class: "Warrior"),
   Health(current: 120, max: 120)
 ), Immediate)
 ```
+
+
+## Reading and writing components
+`read` returns a copy of a component; `write` yields a mutable reference through a single-pass iterator. Both have single- and multi-component forms.
 ```nim
-# Get a component from an entity to read its values
+# Read a single component
 let health = world.read(entityId, Health)
 echo health.current, " / ", health.max
 ```
 ```nim
-# Get a component from an entity with write access
+# Write a single component
 for health in world.write(entityId, Health):
   health.current += 75
 ```
 ```nim
-# Read multiple components from an entity
+# Read multiple components at once
 let (character, health) = world.read(entityId, (Character, Health))
 echo character.name, "'s health is: ", health.current
 ```
 ```nim
-# Write to multiple components from an entity
+# Write multiple components at once
 for (character, health) in world.components(entityId, (Write[Character], Write[Health])):
   character.name = "Happy " & character.name
   health.current += 75
 ```
+
+
+## Querying entities
+A query walks every entity that has the requested components. Keep a query alive across frames rather than declaring it per call.
 ```nim
-# Query for components
 var characterWithWeaponsQuery = Query[(Character, Write[Weapon])]()
 for (character, weapon) in world.query(characterWithWeaponsQuery):
   weapon.attack += 10
   echo character.name, "'s weapon ", weapon.name, " reforged!"
 ```
+
+
+## Adding and removing on the fly
+Whole entities and individual components can be added or removed at any time. These are structural changes, so they honour the same operation modes as `add`.
 ```nim
-# Removing an entity
+# Remove an entity
 world.remove entityId
 ```
 ```nim
-# Adding a component
+# Add a component
 world.add(entityId, Shield(name: "Steel Shield", defense: 15))
 ```
 ```nim
-# Removing a component
+# Remove a component
 world.remove(entityId, Shield)
 ```
+
+
+## The Meta component
+`Meta` is added to every entity automatically and holds its `Id`. This is useful for embedding references to other entities into components.
 ```nim
-# The `Meta` component is automatically added, and holds the `Id` of the entity.
-# This is useful for embedding references to other entities into components.
 let entityId = world.add((Character(name: "Leon", class: "Paladin"),), Immediate)
 
 let meta = world.read(entityId, Meta)
@@ -95,7 +112,58 @@ assert entityId == meta.id
 ```
 
 
+## Tag components
+Components with no fields work as tags — markers that carry no data but still narrow a query.
+```nim
+# A tag is just an empty object
+type Frozen = object
+```
+```nim
+# Add and remove it like any other component
+world.add(entityId, Frozen())
+world.remove(entityId, Frozen)
+```
+```nim
+# Query for it — the tag has no value to read, so discard it with `_`
+var frozenCharacters = Query[(Character, Frozen)]()
+for (character, _) in world.query(frozenCharacters):
+  echo character.name, " is frozen"
+```
+
+
+## Entity references
+Store a typed `Id[T]` inside a component to reference another entity. The type parameter records which component the reference points at, so following it stays type-checked. A default `Id[T]` points at nothing.
+```nim
+# Embed references in components — a single one or a collection of them
+type Party = object
+  leader: Id[Character]
+  members: seq[Id[Character]]
+```
+```nim
+# Turn an entity's id into a typed reference with `of`
+let marcusId = world.add((Character(name: "Marcus", class: "Warrior"),), Immediate)
+let leaderRef = marcusId of Character
+```
+```nim
+# Follow a reference to read or write the component it points at
+echo world.read(leaderRef).name
+
+for character in world.write(leaderRef):
+  character.name = "Sir " & character.name
+```
+```nim
+# `has` checks the referenced entity still carries the component
+if world.has(leaderRef):
+  echo "leader is still a character"
+```
+```nim
+# Re-type a reference to reach a different component on the same entity
+let healthRef = leaderRef of Health
+```
+
+
 ## Advanced querying
+Query modifiers change how components are matched and accessed: `Write` for mutable access, `Opt` for components that may be absent, and `Not` to exclude entities that have a component.
 ```nim
 # Query components for writting
 var charactersWithHealth = Query[(Character, Write[Health])]()
@@ -117,6 +185,52 @@ var disarmedCharacters = Query[(Character, Not[Weapon])]()
 for (character,) in world.query(disarmedCharacters):
   echo character.name, " has no weapon"
 ```
+
+
+## Operation modes
+Every `add` and `remove` takes an operation mode that decides when the structural change is applied.
+```nim
+# `Immediate` applies the change right away
+world.add(entityId, Shield(name: "Steel Shield", defense: 15), Immediate)
+```
+```nim
+# `Deferred` is the default — the change is queued and applied on the next consolidate()
+world.add(entityId, Shield(name: "Steel Shield", defense: 15))
+world.consolidate()
+```
+```nim
+# `after(query)` defers the change until that query finishes iterating,
+# so a system can safely restructure the entities it is walking over
+var disarmed: Query[(Meta, Character, Not[Weapon])]
+for (meta, character) in world.query(disarmed):
+  world.add(meta.id, Weapon(name: "Sword", attack: 10), after(disarmed))
+  # During iteration the weapon is not there yet
+  assert not world.has(meta.id, Weapon)
+
+# Once the loop ends the queued changes are applied
+assert world.has(marcusId, Weapon)
+```
+`after(query)` works for adding and removing components, and for adding and removing whole entities.
+
+
+## Reacting to removals
+A component queued for deferred removal is still present until the next `consolidate()`, so a system can query for it and react before it is gone. `queryForRemoval` yields those components with write access.
+```nim
+# Queue a deferred removal
+world.remove(entityId, Health)
+```
+```nim
+# See the components about to be removed, and act on them one last time
+for (meta, health) in world.queryForRemoval(Health):
+  echo "entity ", meta.id, " is losing ", health.current, " health"
+```
+```nim
+# After consolidate() the removal is applied and the component no longer appears
+world.consolidate()
+for (meta, health) in world.queryForRemoval(Health):
+  echo "won't run"
+```
+This also catches components on an entity queued for whole-entity removal, since removing the entity removes each of its components. Immediate removals skip the queue, so they never show up here.
 
 
 ## Snapshots
@@ -148,6 +262,13 @@ let text = world.serializeToText((Character, Health, Weapon))
 # Deserialize into a fresh world
 var restored = deserializeFromBinary(binary, (Character, Health, Weapon))
 ```
+```nim
+# Mark a field `{.transient.}` to keep it out of the output — it is neither
+# written nor read back, and must be re-derivable at runtime.
+type Sprite = object
+  path: string
+  texture {.transient.}: int   # runtime handle, restored as its default value
+```
 `Id[T]` and `EntityId` fields serialize as the entity id they refer to, and nested objects, `seq`s and fixed size arrays are walked through.
 
 
@@ -173,6 +294,7 @@ Ids pointing at copied entities are remapped to their counterparts, ids pointing
 
 
 ## Events
+Events are value objects passed between systems through a per-type queue — emit them from anywhere in the game loop and collect them wherever you handle them.
 ```nim
 # Declare event types, events are regular value objects.
 type DamageEvent = object
@@ -205,11 +327,28 @@ for event in world.collect(DamageEvent):
 ```
 
 
-## Features to cover
-- [ ] Tag components, components with no fields, are supported and queriable.
-- [ ] Typed `Id[T]` references to other entities, embeddable in components.
-- [ ] Three modes for add and remove operations: immediate, deferred, and after a query, to safely mutate the entities a query is iterating.
-- [ ] Components queued for deferred removal can be queried, so systems can react before they are gone.
-- [ ] An explicit filter chooses which components are serialized, and the `{.transient.}` pragma which fields are skipped.
-- [ ] Deserialization skips unknown component types and unknown fields, so older saves keep loading.
-- [ ] Console output of a world as a text table, for debugging.
+## Debugging
+`show` renders a world as a text table, one block per archetype, listing the chosen components for every entity. Handy for inspecting state at a glance.
+```nim
+# Pick which components to print; long values are truncated at maxWidth (default 20)
+echo world.show((Character, Health, Weapon))
+```
+```
+.-----------.
+| Archetype |
+.---------------------------------------------.
+| Character      | Health       | Weapon      |
+|---------------------------------------------|
+| name: Marcus   | current: 120 | name: Sword |
+| class: Warrior | max: 120     | attack: 10  |
+'---------------------------------------------'
+
+.-----------.
+| Archetype |
+.---------------------------.
+| Character   | Health      |
+|---------------------------|
+| name: Elena | current: 80 |
+| class: Mage | max: 80     |
+'---------------------------'
+```

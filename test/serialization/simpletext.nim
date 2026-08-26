@@ -12,6 +12,12 @@ type
     data: seq[byte]
 
 
+type
+  Sprite = object
+    path: string
+    texture {.transient.}: int
+
+
 suite "Text (JSON) serialization should":
   setup:
     var world = World()
@@ -73,3 +79,20 @@ suite "Text (JSON) serialization should":
     checkpoint("Each byte value should appear as a plain readable number in the serialized text.")
     for value in bytes:
       check text.contains($value)
+
+
+  test "skip transient fields":
+    let spriteId = world.add((Sprite(path: "hero.png", texture: 42),), Immediate)
+
+    let text = world.serializeToText((Sprite,))
+
+    checkpoint("The transient field should not appear in the serialized text.")
+    check not text.contains("texture")
+
+    var restored = deserializeFromText(text, (Sprite,))
+
+    checkpoint("A non-transient field should survive the round-trip.")
+    check restored.read(spriteId, Sprite).path == "hero.png"
+
+    checkpoint("A transient field should read back at its default value.")
+    check restored.read(spriteId, Sprite).texture == 0

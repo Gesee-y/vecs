@@ -12,6 +12,12 @@ type
     data: seq[byte]
 
 
+type
+  Sprite = object
+    path: string
+    texture {.transient.}: int
+
+
 suite "Binary (CBOR) serialization should":
   setup:
     var world = World()
@@ -76,3 +82,20 @@ suite "Binary (CBOR) serialization should":
 
     checkpoint("The exact byte sequence should appear contiguously in the serialized output.")
     check data.find(rawBytes) != -1
+
+
+  test "skip transient fields":
+    let spriteId = world.add((Sprite(path: "hero.png", texture: 42),), Immediate)
+
+    let data = world.serializeToBinary((Sprite,))
+
+    checkpoint("The transient field name should not appear in the serialized output.")
+    check data.find("texture") == -1
+
+    var restored = deserializeFromBinary(data, (Sprite,))
+
+    checkpoint("A non-transient field should survive the round-trip.")
+    check restored.read(spriteId, Sprite).path == "hero.png"
+
+    checkpoint("A transient field should read back at its default value.")
+    check restored.read(spriteId, Sprite).texture == 0
