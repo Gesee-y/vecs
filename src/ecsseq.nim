@@ -9,7 +9,7 @@ type EcsSeqAny* = ref object of RootObj
 
 
 type EcsSeq*[T] = ref object of EcsSeqAny
-  data: seq[T]
+  data*: seq[T]
 
 
 type Builder* =
@@ -50,7 +50,7 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
     result = self.data.len - 1
 
 # Type erased adder.
-proc add*(self: EcsSeqAny, item: ptr byte): int =
+proc addByte*(self: EcsSeqAny, item: ptr byte): int =
   var rawSrc = cast[ptr seq[byte]](self)
 
   if self.free.len > 0:
@@ -58,20 +58,20 @@ proc add*(self: EcsSeqAny, item: ptr byte): int =
     let startIndex = index * self.stride
     
     # We know the access is safe, we disable checks because if would raise `rawSrc` while we know the access is valid 
-    {.push boundsChecks: off.}
+    #{.push boundsChecks: off.}
 
     copyMem(addr rawSrc[][startIndex], item, self.stride)
 
-    {.pop.}
+    #{.pop.}
     self.deleted[index] = false
     result = index
   else:
     let index = rawSrc[].len
     let startIndex = index * self.stride
 
-    rawDst[].setLen(startIndex + self.stride) # Add one element
+    rawSrc[].setLen(startIndex + self.stride) # Add one element
     copyMem(addr rawSrc[][startIndex], item, self.stride)
-    rawDst[].setLen(index + 1)
+    rawSrc[].setLen(index + 1)
 
     self.deleted.add false
     result = index
@@ -131,10 +131,11 @@ proc `$`*[T](self: EcsSeq[T]): string =
   result &= "]"
 
 
-proc buildEcsSeq*[T](): EcsSeqAny = 
-  result = EcsSeq[T]()
-  result.rawPtr = cast[pointer](addr result.data)
-  result.stride = sizeof(T)
+proc buildEcsSeq*[T](): EcsSeq[T] = 
+  var res = EcsSeq[T]()
+  res.rawPtr = cast[pointer](addr res.data)
+  res.stride = sizeof(T)
+  res
 
 
 proc ecsSeqBuilder*[T](): Builder =
@@ -154,7 +155,7 @@ proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny)
   var rawSrc = cast[ptr seq[byte]](fromEcsSeq)
   let startIndex = index * fromEcsSeq.stride
 
-  result = toEcsSeq.add(addr rawSrc[][startIndex])
+  result = toEcsSeq.addByte(addr rawSrc[][startIndex])
   fromEcsSeq.del index
 
 
