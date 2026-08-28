@@ -320,67 +320,60 @@ proc saveSummary*(suite: BenchmarkSuite, name: string) =
       bench.memStats.median.formatFloat(ffScientific, 10)
     )
 
-
-# ######################################################################
-# ####################### NOUVEAUTÉS : BenchComp #######################
-# ######################################################################
-
 type
   BenchResult* = object
     name*: string
     timeRatio*: float
     memRatio*: float
-    timeImprovement*: float      # >0 = plus rapide
-    memImprovement*: float       # >0 = moins de mémoire
-    timeSignificant*: bool       # |improvement| > margin
+    timeImprovement*: float 
+    memImprovement*: float
+    timeSignificant*: bool
     memSignificant*: bool
-    timeBetter*: bool            # true = amélioration temps
-    memBetter*: bool             # true = amélioration mémoire
-    missingInBaseline*: bool     # true = pas dans le CSV de référence
+    timeBetter*: bool
+    memBetter*: bool
+    missingInBaseline*: bool
 
   BenchComp* = object
     suiteName*: string
     baselineFile*: string
-    margin*: float               # marge de signification (ex: 0.05 = 5%)
+    margin*: float
     results*: seq[BenchResult]
-    missingInCurrent*: seq[string]  # benchmarks du CSV absents du suite actuel
+    missingInCurrent*: seq[string]
 
 
 proc loadBenchmarkSuiteFromCsv*(path: string): BenchmarkSuite =
   result.benchmarks = @[]
-  var file = open(path, fmRead)
-  defer: file.close()
 
-  var isFirst = true
-  for line in file.lines:
-    if isFirst:
-      let headerParts = line.split(',', 1)
-      result.name = if headerParts.len > 0: headerParts[0] else: "Baseline"
-      isFirst = false
-      continue
+  if fileExists(path):
+    var file = open(path, fmRead)
+    defer: file.close()
 
-    let parts = line.split(',')
-    if parts.len < 5:
-      continue
+    var isFirst = true
+    for line in file.lines:
+      if isFirst:
+        let headerParts = line.split(',', 1)
+        result.name = if headerParts.len > 0: headerParts[0] else: "Baseline"
+        isFirst = false
+        continue
 
-    var bench = initBenchmark(parts[0], 1, 0)
-    try:
-      let t = parseFloat(parts[3])   # time_seconds
-      let m = parseFloat(parts[4])   # mem_bytes
-      bench.times.add(t)
-      bench.mems.add(m)
-      bench.timeStats = calculateStatistics(bench.times)
-      bench.memStats = calculateStatistics(bench.mems)
-      bench.totalTime = t
-      bench.totalMem = m
-      result.benchmarks.add(bench)
-    except ValueError:
-      continue
+      let parts = line.split(',')
+      if parts.len < 5:
+        continue
 
+      var bench = initBenchmark(parts[0], 1, 0)
+      try:
+        let t = parseFloat(parts[3])   # time_seconds
+        let m = parseFloat(parts[4])   # mem_bytes
+        bench.times.add(t)
+        bench.mems.add(m)
+        bench.timeStats = calculateStatistics(bench.times)
+        bench.memStats = calculateStatistics(bench.mems)
+        bench.totalTime = t
+        bench.totalMem = m
+        result.benchmarks.add(bench)
+      except ValueError:
+        continue
 
-# ------------------------------------------------------------------
-# Comparaison suite actuelle vs CSV de référence
-# ------------------------------------------------------------------
 proc compareWithBaseline*(suite: BenchmarkSuite, csvPath: string,
                          margin: float = 0.05): BenchComp =
   result.suiteName = suite.name
