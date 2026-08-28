@@ -26,5 +26,11 @@ jobs:
         with:
           nim-version: ${{ matrix.nim-version }}
 
+      - name: Setup Vecs
+        run: nimble install cborious
+
       - name: Running tests
         run: testament cat /
+
+      - name: Running Benchmarks
+        run: nim c -r -d:danger "benchs/vecs_bench.nim"

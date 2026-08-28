@@ -1,10 +1,6 @@
-import times, math, tables, random, common
+import times, math, tables, random
+import helpers/[benchmarks, churn_common, common]
 import ../src/vecs
-
-# =========================
-# Benchmark template
-# =========================
-import benchmarks, churn_common
 
 proc churnSpawn(w: var World): EntityId =
   w.add((Position(x: 1.0, y: 1.0), Velocity(x: 1.0, y: 1.0)), Immediate)
@@ -26,7 +22,7 @@ proc churnIterate(w: var World) =
 # Benchmarks
 # =========================
 
-proc runVecsBenchmarks() =
+proc runVecsBenchmarks(): BenchmarkSuite =
   var suite = initSuite("Vecs")
 
   # ------------------------------
@@ -229,8 +225,11 @@ proc runVecsBenchmarks() =
 
   addChurnRows(suite, "Vecs")
 
-  suite.showSummary()
-  suite.saveSummary("vecs")
+  return suite
 
 if isMainModule:
-  runVecsBenchmarks()
+  let suite = runVecsBenchmarks()
+  suite.showSummary()
+  
+  echo compareWithBaseline(suite, "vecs.csv")
+  suite.saveSummary("vecs")

@@ -4,7 +4,10 @@ bin
 *.local
 .nimble
 .envrc
+*.exe
+cborious.nim
 
+cborious
 test/id
 test/queries
 test/world
