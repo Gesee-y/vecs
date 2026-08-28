@@ -4,6 +4,8 @@
 type EcsSeqAny* = ref object of RootObj
   deleted: seq[bool]
   free: seq[int]
+  rawPtr: pointer # Point to the raw data
+  stride: int
 
 
 type EcsSeq*[T] = ref object of EcsSeqAny
@@ -46,6 +48,33 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
     self.data.add item
     self.deleted.add false
     result = self.data.len - 1
+
+# Type erased adder.
+proc add*(self: EcsSeqAny, item: ptr byte): int =
+  var rawSrc = cast[ptr seq[byte]](self)
+
+  if self.free.len > 0:
+    let index = self.free.pop()
+    let startIndex = index * self.stride
+    
+    # We know the access is safe, we disable checks because if would raise `rawSrc` while we know the access is valid 
+    {.push boundsChecks: off.}
+
+    copyMem(addr rawSrc[][startIndex], item, self.stride)
+
+    {.pop.}
+    self.deleted[index] = false
+    result = index
+  else:
+    let index = rawSrc[].len
+    let startIndex = index * self.stride
+
+    rawDst[].setLen(startIndex + self.stride) # Add one element
+    copyMem(addr rawSrc[][startIndex], item, self.stride)
+    rawDst[].setLen(index + 1)
+
+    self.deleted.add false
+    result = index
 
 
 proc del*(self: EcsSeqAny, index: int) =
@@ -102,8 +131,14 @@ proc `$`*[T](self: EcsSeq[T]): string =
   result &= "]"
 
 
+proc buildEcsSeq*[T](): EcsSeqAny = 
+  result = EcsSeq[T]()
+  result.rawPtr = cast[pointer](addr result.data)
+  result.stride = sizeof(T)
+
+
 proc ecsSeqBuilder*[T](): Builder =
-  proc(): EcsSeqAny = EcsSeq[T]()
+  proc(): EcsSeqAny = buildEcsSeq[T]()
 
 
 proc ecsSeqMover*[T](): Mover =
@@ -115,9 +150,18 @@ proc ecsSeqMover*[T](): Mover =
     result = typedToEcsSeq.add element
 
 
+proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
+  var rawSrc = cast[ptr seq[byte]](fromEcsSeq)
+  let startIndex = index * fromEcsSeq.stride
+
+  result = toEcsSeq.add(addr rawSrc[][startIndex])
+  fromEcsSeq.del index
+
+
 proc ecsSeqGetter*[T](): Getter =
   proc(fromEcsSeq: EcsSeqAny, index: int): EcsSeqAny {.nimcall.} =
     let source = cast[EcsSeq[T]](fromEcsSeq)
-    let snap = EcsSeq[T]()
+    let snap = buildEcsSeq[T]()
     discard snap.add source[index]
     snap
+

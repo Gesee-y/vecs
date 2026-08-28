@@ -35,10 +35,16 @@ proc runVecsBenchmarks(): BenchmarkSuite =
     (
       var w = World()
       var ents: seq[EntityId]
+
+      for i in 0..<ENTITY_COUNT:
+        ents.add w.add((Position(x: 1.0, y: 1.0), Velocity(x: 1.0, y: 1.0)), Immediate)
+
+      for e in ents:
+        w.remove(e, Immediate)
     ),
     (
       for i in 0..<ENTITY_COUNT:
-        ents.add w.add((Position(x: 1.0, y: 1.0), Velocity(x: 1.0, y: 1.0)), Immediate)
+        ents[i] = w.add((Position(x: 1.0, y: 1.0), Velocity(x: 1.0, y: 1.0)), Immediate)
     )
   )
   showDetailed(suite.benchmarks[0])
