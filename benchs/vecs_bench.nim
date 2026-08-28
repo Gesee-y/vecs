@@ -136,6 +136,10 @@ proc runVecsBenchmarks(): BenchmarkSuite =
       for i in 0..<ENTITY_COUNT:
         discard w.add((Position(x: 1.0, y: 1.0), Velocity(x: 1.0, y: 1.0)), Immediate)
       var q: Query[(Write[Position], Velocity)]
+
+      for (pos, vel) in w.query(q):
+        pos.x += vel.x
+        pos.y += vel.y
     ),
     (
       for (pos, vel) in w.query(q):
@@ -214,6 +218,9 @@ proc runVecsBenchmarks(): BenchmarkSuite =
             of 9: w.add(e, Friction(coeff: 0.5), Immediate)
             else: discard
       var q: Query[(Write[Position], Velocity)]
+      for (pos, vel) in w.query(q):
+        pos.x += vel.x
+        pos.y += vel.y
     ),
     (
       for (pos, vel) in w.query(q):
