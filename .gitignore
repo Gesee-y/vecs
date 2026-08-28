@@ -4,10 +4,15 @@ bin
 *.local
 .nimble
 .envrc
+*.exe
+cborious.nim
+nimcache
 
-test/id
-test/queries
-test/world
-test/events
-test/manycomponents
+cborious
+testresults
+tests/id
+tests/queries
+tests/world
+tests/events
+tests/manycomponents
 

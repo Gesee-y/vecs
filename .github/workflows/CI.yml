@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  push:
+    paths-ignore:
+      - 'LICENSE'
+      - '*.md'
+      - 'docs/*'
+  pull_request:
+    paths-ignore:
+      - 'LICENSE'
+      - '*.md'
+      - 'docs/*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        nim-version: ['stable']
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Setup nim environment
+        uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: ${{ matrix.nim-version }}
+
+      - name: Setup Vecs
+        run: nimble install cborious
+
+      - name: Running tests
+        run: |
+            testament cat /
+            nim c -r -d:ArchetypeWords=2 "tests/manycomponents.nim"
+
+      - name: Running Benchmarks
+        run: nim c -r -d:danger "benchs/vecs_bench.nim"
