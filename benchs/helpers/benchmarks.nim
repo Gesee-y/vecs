@@ -2,7 +2,7 @@
  # ########################################################## PROFILER ################################################################## #
 # ###################################################################################################################################### #
 
-import times, math, algorithm, strutils, tables, unicode, std/monotimes
+import times, math, algorithm, strutils, tables, unicode, std/monotimes, os
 
 type
   Parameters* = object
