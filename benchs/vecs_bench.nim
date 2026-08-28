@@ -231,5 +231,5 @@ if isMainModule:
   let suite = runVecsBenchmarks()
   suite.showSummary()
   
-  echo compareWithBaseline(suite, "vecs.csv")
-  suite.saveSummary("vecs")
+  echo compareWithBaseline(suite, "benchs/vecs.csv")
+  suite.saveSummary("benchs/vecs")
