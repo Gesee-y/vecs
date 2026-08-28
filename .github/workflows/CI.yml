@@ -30,8 +30,9 @@ jobs:
         run: nimble install cborious
 
       - name: Running tests
-        run: testament cat /
-        run: nim c -r -d:ArchetypeWords=2 tests/manycomponents.nim"
+        run: 
+            testament cat /
+            nim c -r -d:ArchetypeWords=2 tests/manycomponents.nim"
 
       - name: Running Benchmarks
         run: nim c -r -d:danger "benchs/vecs_bench.nim"
