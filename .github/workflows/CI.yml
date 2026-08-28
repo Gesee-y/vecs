@@ -30,7 +30,7 @@ jobs:
         run: nimble install cborious
 
       - name: Running tests
-        run: 
+        run: |
             testament cat /
             nim c -r -d:ArchetypeWords=2 tests/manycomponents.nim"
 
