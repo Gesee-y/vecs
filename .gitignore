@@ -6,11 +6,12 @@ bin
 .envrc
 *.exe
 cborious.nim
+nimcache
 
 cborious
-test/id
-test/queries
-test/world
-test/events
-test/manycomponents
+tests/id
+tests/queries
+tests/world
+tests/events
+tests/manycomponents
 
