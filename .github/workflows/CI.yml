@@ -32,7 +32,7 @@ jobs:
       - name: Running tests
         run: |
             testament cat /
-            nim c -r -d:ArchetypeWords=2 tests/manycomponents.nim"
+            nim c -r -d:ArchetypeWords=2 "tests/manycomponents.nim"
 
       - name: Running Benchmarks
         run: nim c -r -d:danger "benchs/vecs_bench.nim"
