@@ -9,6 +9,7 @@ cborious.nim
 nimcache
 
 cborious
+testresults
 tests/id
 tests/queries
 tests/world
