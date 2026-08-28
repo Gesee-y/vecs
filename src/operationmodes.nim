@@ -19,8 +19,8 @@ type OperationMode*[T: tuple] = object
     query*: ptr[Query[T]]
 
 
-let Immediate* = OperationMode[(int,)](kind: ImmediateMode)
-let Deferred* = OperationMode[(int,)](kind: DeferredMode)
+const Immediate* = OperationMode[(int,)](kind: ImmediateMode)
+const Deferred* = OperationMode[(int,)](kind: DeferredMode)
 
 
 proc after*[T: tuple](query: var Query[T]): OperationMode[T] =

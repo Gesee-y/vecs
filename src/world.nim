@@ -55,23 +55,26 @@ proc entityAlreadyExists(id: EntityId): ref Exception =
 
 # Checks
 proc checkIdIsValid(id: EntityId) =
-  if id.value < 0:
-    raise idIsInvalid(id)
+  when not defined(danger):
+    if id.value < 0:
+      raise idIsInvalid(id)
 
 
 template checkNotATuple[T](tup: typedesc[T]) =
-  when T is tuple:
+  when T is tuple and not defined(danger):
     {.error: "Component type expected, got a tuple: " & $T.}
 
 
 proc checkEntityExists(world: var World, id: EntityId) =
-  if not world.entities.has(id.value):
-    raise entityDoesNotExist(id)
+  when not defined(danger):
+    if not world.entities.has(id.value):
+      raise entityDoesNotExist(id)
 
 
 proc checkEntityDoesNotExist(world: var World, id: EntityId) =
-  if world.entities.has(id.value):
-    raise entityAlreadyExists(id)
+  when not defined(danger):
+    if world.entities.has(id.value):
+      raise entityAlreadyExists(id)
 
 
 # Archetype creation and book-keeping
