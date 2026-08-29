@@ -355,8 +355,9 @@ proc addImmediateComponents[T: tuple](world: var World, id: EntityId, components
   for name, field in fieldPairs(components):
     let componentId = world.componentIdFrom typeof field
 
-    if entity.archetypeId.contains(componentId):
-      raise newException(ValueError, "Component " & $(typeof field) & " already exists in Entity " & $id)
+    when not defined(danger):
+      if entity.archetypeId.contains(componentId):
+        raise newException(ValueError, "Component " & $(typeof field) & " already exists in Entity " & $id)
 
     componentIds.add componentId
 

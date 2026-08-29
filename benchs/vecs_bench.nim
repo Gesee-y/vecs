@@ -81,6 +81,12 @@ proc runVecsBenchmarks(): BenchmarkSuite =
       var ents: seq[EntityId]
       for i in 0..<ENTITY_COUNT:
         ents.add w.add((Position(x: 1.0, y: 1.0),), Immediate)
+
+      for e in ents:
+        w.add(e, Velocity(x: 1.0, y: 1.0), Immediate)
+
+      for e in ents:
+        w.remove(e, Velocity, Immediate)
     ),
     (
       for e in ents:
@@ -101,6 +107,12 @@ proc runVecsBenchmarks(): BenchmarkSuite =
       var ents: seq[EntityId]
       for i in 0..<ENTITY_COUNT:
         ents.add w.add((Position(x: 1.0, y: 1.0), Velocity(x: 1.0, y: 1.0)), Immediate)
+
+      for e in ents:
+        w.remove(e, Velocity, Immediate)
+
+      for e in ents:
+        w.add(e, Velocity(x: 1.0, y: 1.0), Immediate)
     ),
     (
       for e in ents:
@@ -121,6 +133,10 @@ proc runVecsBenchmarks(): BenchmarkSuite =
       var ents: seq[EntityId]
       for i in 0..<ENTITY_COUNT:
         ents.add w.add((Position(x: 1.0, y: 1.0),), Immediate)
+
+      for e in ents:
+        w.add(e, Velocity(x: 1.0, y: 1.0), Immediate)
+        w.remove(e, Velocity, Immediate)
     ),
     (
       for e in ents:
@@ -244,5 +260,5 @@ if isMainModule:
   let suite = runVecsBenchmarks()
   suite.showSummary()
   
-  #echo compareWithBaseline(suite, "benchs/vecs.csv")
-  #suite.saveSummary("benchs/vecs")
+  echo compareWithBaseline(suite, "benchs/vecs.csv")
+  suite.saveSummary("benchs/vecs")
