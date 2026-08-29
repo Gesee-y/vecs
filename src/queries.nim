@@ -2,7 +2,7 @@
 # Copyright (c) 2025 RowDaBoat
 # `vecs` is a free open source ECS library for Nim.
 import options
-import archetype, archetypeid, operations
+import archetypeid, operations
 
 
 type Opt*[T] = Option[T]

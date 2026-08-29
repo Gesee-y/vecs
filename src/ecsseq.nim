@@ -4,8 +4,9 @@
 type EcsSeqAny* = ref object of RootObj
   deleted: seq[bool]
   free: seq[int]
-  rawPtr: pointer # Point to the raw data
-  stride: int
+  rawPtr*: pointer # Point to the raw data
+  stride*: int
+  resize: proc(ecsSeq: EcsSeqAny, newLen: int) {.nimcall.}
 
 
 type EcsSeq*[T] = ref object of EcsSeqAny
@@ -17,7 +18,7 @@ type Builder* =
 
 
 type Adder* =
-  proc(ecsSeq: var EcsSeqAny): int
+  proc(ecsSeq: var EcsSeqAny, itemPtr: pointer): int {.nimcall.}
 
 
 type Mover* =
@@ -49,37 +50,49 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
     self.deleted.add false
     result = self.data.len - 1
 
+
 # Type erased adder.
 proc addByte*(self: EcsSeqAny, item: ptr byte): int =
-  var rawSrc = cast[ptr seq[byte]](self)
+  var rawSrc = cast[ptr seq[byte]](self.rawPtr)
 
   if self.free.len > 0:
     let index = self.free.pop()
     let startIndex = index * self.stride
     
-    # We know the access is safe, we disable checks because if would raise `rawSrc` while we know the access is valid 
-    #{.push boundsChecks: off.}
+    {.push boundChecks: off.}
+    if item != nil and self.stride > 0:
+      copyMem(addr rawSrc[][startIndex], item, self.stride)
+    {.pop.}
 
-    copyMem(addr rawSrc[][startIndex], item, self.stride)
-
-    #{.pop.}
     self.deleted[index] = false
     result = index
   else:
-    let index = rawSrc[].len
+    let index = self.deleted.len
     let startIndex = index * self.stride
 
-    rawSrc[].setLen(startIndex + self.stride) # Add one element
-    copyMem(addr rawSrc[][startIndex], item, self.stride)
-    rawSrc[].setLen(index + 1)
+    self.resize(self, index + 1)
+
+    {.push boundChecks: off.}
+    if item != nil and self.stride > 0:
+      copyMem(addr rawSrc[][startIndex], item, self.stride)
+    {.pop.}
 
     self.deleted.add false
     result = index
+
+  zeroMem(item, self.stride)
 
 
 proc del*(self: EcsSeqAny, index: int) =
   self.deleted[index] = true
   self.free.add index
+  var rawSrc = cast[ptr seq[byte]](self.rawPtr)
+  let startIndex = index * self.stride
+  if self.stride > 0:
+    {.push boundChecks: off.}
+    # Zero out deleted element memory to prevent ARC/ORC double-free when sequence is disposed.
+    zeroMem(addr rawSrc[][startIndex], self.stride)
+    {.pop.}
 
 
 proc len*(self: EcsSeqAny): int =
@@ -135,27 +148,50 @@ proc buildEcsSeq*[T](): EcsSeq[T] =
   var res = EcsSeq[T]()
   res.rawPtr = cast[pointer](addr res.data)
   res.stride = sizeof(T)
+  res.resize = proc(ecsSeq: EcsSeqAny, newLen: int) {.nimcall.} =
+    cast[EcsSeq[T]](ecsSeq).data.setLen(newLen)
   res
 
 
 proc ecsSeqBuilder*[T](): Builder =
-  proc(): EcsSeqAny = buildEcsSeq[T]()
+  proc(): EcsSeqAny {.nimcall.} = buildEcsSeq[T]()
+
+
+proc ecsSeqAdder*[T](): Adder =
+  proc(ecsSeq: var EcsSeqAny, itemPtr: pointer): int {.nimcall.} =
+    cast[EcsSeq[T]](ecsSeq).add cast[ptr T](itemPtr)[]
 
 
 proc ecsSeqMover*[T](): Mover =
-  proc(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
-    var typedFromEcsSeq = cast[EcsSeq[T]](fromEcsSeq)
-    var typedToEcsSeq = cast[EcsSeq[T]](toEcsSeq)
-    let element = typedFromEcsSeq[index]
+  proc(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int {.nimcall.} =
+    var typedFrom = cast[EcsSeq[T]](fromEcsSeq)
+    var typedTo = cast[EcsSeq[T]](toEcsSeq)
+    let element = typedFrom[index]
+    var rawSrc = cast[ptr seq[byte]](fromEcsSeq.rawPtr)
+    let startIndex = index * fromEcsSeq.stride
+    if fromEcsSeq.stride > 0:
+      {.push boundChecks: off.}
+      # Zero out the moved element memory in source to prevent double free or dropping invalid references later
+      zeroMem(addr rawSrc[][startIndex], fromEcsSeq.stride)
+      {.pop.}
     fromEcsSeq.del index
-    result = typedToEcsSeq.add element
+    result = typedTo.add element
 
 
 proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
-  var rawSrc = cast[ptr seq[byte]](fromEcsSeq)
+  var rawSrc = cast[ptr seq[byte]](fromEcsSeq.rawPtr)
   let startIndex = index * fromEcsSeq.stride
 
-  result = toEcsSeq.addByte(addr rawSrc[][startIndex])
+  {.push boundChecks: off.}
+  let srcPtr = if fromEcsSeq.stride > 0: addr rawSrc[][startIndex] else: nil
+  {.pop.}
+
+  result = toEcsSeq.addByte(srcPtr)
+
+  if srcPtr != nil and fromEcsSeq.stride > 0:
+    # Zero out the moved element memory in source to prevent double free or dropping invalid references later
+    zeroMem(srcPtr, fromEcsSeq.stride)
+
   fromEcsSeq.del index
 
 
@@ -165,4 +201,3 @@ proc ecsSeqGetter*[T](): Getter =
     let snap = buildEcsSeq[T]()
     discard snap.add source[index]
     snap
-
