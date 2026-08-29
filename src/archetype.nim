@@ -1,16 +1,17 @@
 # ISC License
 # Copyright (c) 2025 RowDaBoat
 # `vecs` is a free open source ECS library for Nim.
-import std/[macros, genasts, hashes, sets]
+import std/[macros, genasts, hashes, sets, algorithm]
 import tables
 import ecsseq
-import componentid, archetypeid
+import componentid, archetypeid, operations
 
 
 type Archetype* = ref object
   id*: ArchetypeId
   componentIds*: seq[ComponentId]
   componentLists*: Table[ComponentId, EcsSeqAny]
+  componentSequences: seq[EcsSeqAny]
   builders: seq[Builder]
 
 
@@ -32,18 +33,38 @@ macro fieldTypes*(tup: typed, body: untyped): untyped =
 
 
 proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder]): Archetype =
-  let archetypeId = archetypeIdFrom componentIds
-  var componentLists = initTable[ComponentId, EcsSeqAny]()
+  var componentOrder = newSeq[int](componentIds.len)
 
-  for index in 0..<componentIds.len:
-    let componentId = componentIds[index]
-    componentLists[componentId] = builders[index]()
+  for index in 0..<componentOrder.len:
+    componentOrder[index] = index
+
+  componentOrder.sort do (left, right: int) -> int:
+    cmp(componentIds[left].int, componentIds[right].int)
+
+  var orderedComponentIds = newSeq[ComponentId](componentIds.len)
+  var orderedBuilders = newSeq[Builder](builders.len)
+
+  for index in 0..<componentOrder.len:
+    let sourceIndex = componentOrder[index]
+    orderedComponentIds[index] = componentIds[sourceIndex]
+    orderedBuilders[index] = builders[sourceIndex]
+
+  let archetypeId = archetypeIdFrom orderedComponentIds
+  var componentLists = initTable[ComponentId, EcsSeqAny]()
+  var componentSequences = newSeqOfCap[EcsSeqAny](orderedComponentIds.len)
+
+  for index in 0..<orderedComponentIds.len:
+    let componentId = orderedComponentIds[index]
+    let componentSequence = orderedBuilders[index]()
+    componentLists[componentId] = componentSequence
+    componentSequences.add componentSequence
 
   Archetype(
     id: archetypeId,
-    componentIds: componentIds,
+    componentIds: orderedComponentIds,
     componentLists: componentLists,
-    builders: builders
+    componentSequences: componentSequences,
+    builders: orderedBuilders
   )
 
 
@@ -90,38 +111,52 @@ proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
     result = addField(archetype.componentLists[componentId], field)
 
 
-proc add*(archetype: var Archetype, rawComponents: Table[ComponentId, seq[byte]]): int =
-  for compId, bytes in rawComponents.pairs:
-    let bytesPtr = if bytes.len > 0: unsafeAddr bytes[0] else: nil
-    result = archetype.componentLists[compId].addByte(bytesPtr)
+proc add*(archetype: var Archetype, components: openArray[ComponentBytes]): int =
+  for component in components:
+    let bytesPtr = if component.data.len > 0: unsafeAddr component.data[0] else: nil
+    result = archetype.componentLists[component.id].copyByte(bytesPtr)
 
 
 proc remove*(archetype: var Archetype, archetypeEntityId: int) =
-  for components in archetype.componentLists.values:
-    components.del archetypeEntityId
+  for componentSequence in archetype.componentSequences:
+    componentSequence.del archetypeEntityId
 
 
-proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, rawComponents: Table[ComponentId, seq[byte]]): int =
-  for index in 0..<fromArchetype.componentIds.len:
-    let compId = fromArchetype.componentIds[index]
-    var fromEcsSeq = fromArchetype.componentLists[compId]
-    var toEcsSeq = toArchetype.componentLists[compId]
+proc moveExisting*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
+  var targetIndex = 0
+
+  for index in 0..<fromArchetype.componentSequences.len:
+    var fromEcsSeq = fromArchetype.componentSequences[index]
+    let componentId = fromArchetype.componentIds[index]
+
+    while toArchetype.componentIds[targetIndex] != componentId:
+      inc targetIndex
+
+    var toEcsSeq = toArchetype.componentSequences[targetIndex]
     result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
+    inc targetIndex
 
-  for compId, bytes in rawComponents.pairs:
-    let bytesPtr = if bytes.len > 0: unsafeAddr bytes[0] else: nil
-    let index = addByte(toArchetype.componentLists[compId], bytesPtr)
+
+proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, components: openArray[ComponentBytes]): int =
+  result = fromArchetype.moveExisting(fromArchetypeEntityId, toArchetype)
+
+  for component in components:
+    let bytesPtr = if component.data.len > 0: unsafeAddr component.data[0] else: nil
+    let index = copyByte(toArchetype.componentLists[component.id], bytesPtr)
     when not defined(danger): assert result == index
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
+  var targetIndex = 0
+
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
-    var fromEcsSeq = fromArchetype.componentLists[compId]
+    var fromEcsSeq = fromArchetype.componentSequences[index]
 
-    if (toArchetype.id.contains compId):
-      var toEcsSeq = toArchetype.componentLists[compId]
+    if targetIndex < toArchetype.componentIds.len and toArchetype.componentIds[targetIndex] == compId:
+      var toEcsSeq = toArchetype.componentSequences[targetIndex]
       result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
+      inc targetIndex
     else:
       fromEcsSeq.del fromArchetypeEntityId
 

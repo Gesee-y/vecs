@@ -217,10 +217,15 @@ proc add*[T](s: var VSeq[T]; val: sink T) =
 
 proc unsafeAdd*(s: pointer; val: ptr byte) =
   ## Append a single element.
-  var l = s.unsafeLen
-  unsafeEnsureCap(s, l[] + 1)
-  inc l[]
-  s.unsafeSet(l[]-1, val)
+  let length = s.unsafeLen[]
+  unsafeEnsureCap(s, length + 1)
+
+  let stride = s.unsafeStride[]
+  if stride > 0:
+    let data = cast[ptr UncheckedArray[byte]](s.unsafeData[])
+    copyMem(addr data[length * stride], val, stride)
+
+  s.unsafeLen[] = length + 1
 
 proc add*[T](s: var VSeq[T]; vals: openArray[T]) =
   ## Append multiple elements.

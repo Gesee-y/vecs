@@ -60,8 +60,7 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
     result = self.data.len - 1
 
 
-# Type erased adder.
-proc addByte*(self: EcsSeqAny, item: ptr byte): int =
+proc copyByte*(self: EcsSeqAny, item: ptr byte): int =
   if self.free.len > 0:
     let index = self.free.pop()
     
@@ -75,12 +74,22 @@ proc addByte*(self: EcsSeqAny, item: ptr byte): int =
     self.deleted.add false
     result = index
 
+
+
+# Type erased transfer.
+proc addByte*(self: EcsSeqAny, item: ptr byte): int =
+  result = self.copyByte(item)
   zeroMem(item, self.rawPtr.unsafeStride[])
 
 
-proc del*(self: EcsSeqAny, index: int) =
+proc release(self: EcsSeqAny, index: int) =
   self.deleted[index] = true
   self.free.add index
+
+
+proc del*(self: EcsSeqAny, index: int) =
+  self.release(index)
+
   var rawSrc = cast[ptr UncheckedArray[byte]](self.rawPtr.unsafeData[])
   let stride = self.rawPtr.unsafeStride[]
   let startIndex = index * stride
@@ -185,12 +194,7 @@ proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny)
   {.pop.}
 
   result = toEcsSeq.addByte(srcPtr)
-
-  if srcPtr != nil and stride > 0:
-    # Zero out the moved element memory in source to prevent double free or dropping invalid references later
-    zeroMem(srcPtr, stride)
-
-  fromEcsSeq.del index
+  fromEcsSeq.release(index)
 
 
 proc ecsSeqGetter*[T](): Getter =

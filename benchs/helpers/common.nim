@@ -1,6 +1,6 @@
 
 const
-  SAMPLE* {.intDefine.} = 1000
+  SAMPLE* {.intDefine.} = 10
   WARMUP* {.intDefine.} = 1
   ENTITY_COUNT* {.intDefine.} = 10_000
   SELECTION_THRESHOLD* = 0.1
