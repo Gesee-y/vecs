@@ -10,7 +10,7 @@ import componentid, archetypeid, operations
 type Archetype* = ref object
   id*: ArchetypeId
   componentIds*: seq[ComponentId]
-  componentLists*: Table[ComponentId, EcsSeqAny]
+  componentLists*: seq[EcsSeqAny]
   componentSequences: seq[EcsSeqAny]
   builders: seq[Builder]
 
@@ -33,38 +33,26 @@ macro fieldTypes*(tup: typed, body: untyped): untyped =
 
 
 proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder]): Archetype =
-  var componentOrder = newSeq[int](componentIds.len)
+  let archetypeId = archetypeIdFrom componentIds
+  var componentLists: seq[EcsSeqAny]
+  var componentSequences = newSeqOfCap[EcsSeqAny](componentIds.len)
 
-  for index in 0..<componentOrder.len:
-    componentOrder[index] = index
+  for index in 0..<componentIds.len:
+    let componentId = componentIds[index]
+    let componentSeq = builders[index]()
 
-  componentOrder.sort do (left, right: int) -> int:
-    cmp(componentIds[left].int, componentIds[right].int)
-
-  var orderedComponentIds = newSeq[ComponentId](componentIds.len)
-  var orderedBuilders = newSeq[Builder](builders.len)
-
-  for index in 0..<componentOrder.len:
-    let sourceIndex = componentOrder[index]
-    orderedComponentIds[index] = componentIds[sourceIndex]
-    orderedBuilders[index] = builders[sourceIndex]
-
-  let archetypeId = archetypeIdFrom orderedComponentIds
-  var componentLists = initTable[ComponentId, EcsSeqAny]()
-  var componentSequences = newSeqOfCap[EcsSeqAny](orderedComponentIds.len)
-
-  for index in 0..<orderedComponentIds.len:
-    let componentId = orderedComponentIds[index]
-    let componentSequence = orderedBuilders[index]()
-    componentLists[componentId] = componentSequence
-    componentSequences.add componentSequence
+    if componentId.int >= componentLists.len:
+      componentLists.setLen(componentId.int + 1)
+    
+    componentLists[componentId.int] = componentSeq
+    componentSequences.add componentSeq
 
   Archetype(
     id: archetypeId,
-    componentIds: orderedComponentIds,
+    componentIds: componentIds,
     componentLists: componentLists,
     componentSequences: componentSequences,
-    builders: orderedBuilders
+    builders: builders
   )
 
 
@@ -90,7 +78,7 @@ proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archety
 
 iterator entities*(archetype: Archetype): int =
   let firstCompId = archetype.componentIds[0]
-  let firstComponentList = archetype.componentLists[firstCompId]
+  let firstComponentList = archetype.componentLists[firstCompId.int]
   for index in firstComponentList.ids:
     yield index
 
@@ -174,5 +162,5 @@ proc disjointed*(archetype: Archetype, candidateId: ArchetypeId): bool =
 
 
 proc isEmpty*(archetype: Archetype): bool =
-  for componentList in archetype.componentLists.values:
+  for componentList in archetype.componentLists:
     return componentList.len == 0

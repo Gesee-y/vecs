@@ -486,7 +486,7 @@ iterator write*[T](world: var World, id: EntityId, compDesc: typedesc[T]): var T
   let archetypeEntityId = entity.archetypeEntityId
   let compId = world.componentIdFrom typeof T
 
-  if archetype.componentLists.hasKey(compId):
+  if archetype.componentLists[compId] != nil:
     let ecsSeqAny = archetype.componentLists[compId]
     type Retype = EcsSeq[T]
     yield cast[Retype](ecsSeqAny)[archetypeEntityId]

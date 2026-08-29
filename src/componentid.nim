@@ -10,6 +10,8 @@ type ComponentId* = distinct uint
 proc hash*(id: ComponentId): Hash {.borrow.}
 proc `==`*(a, b: ComponentId): bool {.borrow.}
 proc `$`*(id: ComponentId): string = $id.int
+template `[]`*[T](s: seq[T], i:ComponentId): T = s[i.int]
+template `[]=`*[T](s: seq[T], i:ComponentId, val: T) = (s[i.int] = v)
 
 
 var nextComponentId* {.compileTime.} = 0'u64
