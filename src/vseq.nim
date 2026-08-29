@@ -43,6 +43,7 @@ proc `=sink`*[T](dest: var VSeq[T]; src: VSeq[T]) =
   dest.data = src.data
   dest.len = src.len
   dest.cap = src.cap
+  dest.stride = src.stride
 
 proc `=copy`*[T](dest: var VSeq[T]; src: VSeq[T]) =
   if src.data == dest.data:
@@ -52,6 +53,7 @@ proc `=copy`*[T](dest: var VSeq[T]; src: VSeq[T]) =
     dest.data = nil
     dest.len = 0
     dest.cap = 0
+    dest.stride = sizeof(T)
   else:
     let newCap = src.cap
     let newData = cast[ptr UncheckedArray[T]](alloc(newCap * sizeof(T)))
@@ -62,11 +64,13 @@ proc `=copy`*[T](dest: var VSeq[T]; src: VSeq[T]) =
     dest.data = newData
     dest.len = src.len
     dest.cap = newCap
+    dest.stride = src.stride
 
 proc `=dup`*[T](src: VSeq[T]): VSeq[T] =
   if src.data != nil:
     result.cap = src.cap
     result.len = src.len
+    result.stride = src.stride
     result.data = cast[ptr UncheckedArray[T]](alloc(result.cap * sizeof(T)))
     copyMem(result.data, src.data, result.len * sizeof(T))
     zeroMem(cast[pointer](cast[int](result.data) + result.len * sizeof(T)),
@@ -81,17 +85,17 @@ proc default*[T](s: typedesc[VSeq[T]]): VSeq[T] =
 
 proc newVSeq*[T](len: int = 0): VSeq[T] =
   ## Create a new empty VSeq with a given capacity.
+  result.stride = sizeof(T)
   if len > 0:
     result.cap = len
     result.len = len
-    result.stride = sizeof(T)
     result.data = cast[ptr UncheckedArray[T]](alloc(len * sizeof(T)))
     zeroMem(result.data, len * sizeof(T))
 
 proc newVSeqOfCap*[T](cap: int): VSeq[T] =
+  result.stride = sizeof(T)
   if cap > 0:
     result.cap = cap
-    result.stride = sizeof(T)
     result.data = cast[ptr UncheckedArray[T]](alloc(cap * sizeof(T)))
     zeroMem(result.data, cap * sizeof(T))
 
@@ -100,13 +104,13 @@ proc newVSeqOfCap*[T](cap: int): VSeq[T] =
 # -----------------------------------------------------------------------------
 
 proc len*[T](s: VSeq[T]): int {.inline.} = s.len
-proc unsafeLen*(s: pointer): ptr int {.inline.} = cast[ptr int](s)
+proc unsafeLen(s: pointer): ptr int {.inline.} = cast[ptr int](s)
 proc cap*[T](s: VSeq[T]): int {.inline.} = s.cap
-proc unsafeCap*(s: pointer): ptr int {.inline.} = cast[ptr int](cast[pointer](cast[int](s) + sizeof(int)))
+proc unsafeCap(s: pointer): ptr int {.inline.} = cast[ptr int](cast[pointer](cast[int](s) + sizeof(int)))
 proc high*[T](s: VSeq[T]): int {.inline.} = s.len - 1
 proc low*[T](s: VSeq[T]): int {.inline.} = 0
-proc unsafeStride(s: pointer): ptr int = cast[ptr int](cast[pointer](cast[int](s) + sizeof(int)*2))
-proc unsafeData(s: pointer): ptr pointer = cast[ptr pointer](cast[pointer](cast[int](s) + sizeof(int)*3))
+proc unsafeStride*(s: pointer): ptr int = cast[ptr int](cast[pointer](cast[int](s) + sizeof(int)*2))
+proc unsafeData*(s: pointer): ptr pointer = cast[ptr pointer](cast[pointer](cast[int](s) + sizeof(int)*3))
 
 proc `$`*[T](s: VSeq[T]): string =
   "VSeq[" & name(T) & "](len: " & $s.len & ", cap: " & $s.cap & ")"
@@ -187,7 +191,7 @@ proc unsafeSet*(s: pointer; i: int; val: ptr byte) {.inline.} =
   let l = s.unsafeLen[]
   when not defined(danger):
     if i < 0 or i >= l:
-      raise newException(IndexDefect, "index " & $i & " out of bounds (len=" & $s.len & ")")
+      raise newException(IndexDefect, "index " & $i & " out of bounds (len=" & $l & ")")
   
   var data = cast[ptr UncheckedArray[byte]](s.unsafeData[])
   copyMem(addr data[i*s.unsafeStride[]], val, s.unsafeStride[])
@@ -215,8 +219,8 @@ proc unsafeAdd*(s: pointer; val: ptr byte) =
   ## Append a single element.
   var l = s.unsafeLen
   unsafeEnsureCap(s, l[] + 1)
-  s.unsafeSet(l[], val)
   inc l[]
+  s.unsafeSet(l[]-1, val)
 
 proc add*[T](s: var VSeq[T]; vals: openArray[T]) =
   ## Append multiple elements.

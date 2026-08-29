@@ -3,7 +3,7 @@
 # `vecs` is a free open source ECS library for Nim.
 import std/[packedsets, hashes, macros, intsets, options]
 import typetraits, tables, sets
-import entityid, componentid, archetypeid, archetype, entity, ecsseq, queries, components, operations, operationmodes, events
+import entityid, componentid, archetypeid, archetype, entity, ecsseq, queries, components, operations, operationmodes, events, vseq
 export entityid.EntityId, components.Meta, operationmodes
 export components
 export events
@@ -384,7 +384,6 @@ proc componentIdFrom*[T](world: var World, desc: typedesc[T]): ComponentId =
 
   if world.builders[id] == nil:
     world.builders[id] = ecsSeqBuilder[T]()
-    world.movers[id] = ecsSeqMover[T]()
     world.getters[id] = ecsSeqGetter[T]()
 
 
@@ -1030,11 +1029,11 @@ proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
 
   var rawComponentsById: Table[ComponentId, seq[byte]]
   for compId, snapshotSeq in snap.componentData:
-    var rawSrc = cast[ptr seq[byte]](snapshotSeq.rawPtr)
+    let rawSrc = cast[ptr UncheckedArray[byte]](snapshotSeq.rawPtr.unsafeData[])
     var rawBytes = newSeq[byte](snapshotSeq.stride)
     if snapshotSeq.stride > 0:
       {.push boundChecks: off.}
-      copyMem(addr rawBytes[0], addr rawSrc[][0], snapshotSeq.stride)
+      copyMem(addr rawBytes[0], addr rawSrc[0], snapshotSeq.stride)
       {.pop.}
     rawComponentsById[compId] = rawBytes
 
