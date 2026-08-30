@@ -8,6 +8,7 @@ export entityid.EntityId, components.Meta, operationmodes
 export components
 export events
 
+const CHECKS_ENABLED = not defined(danger)
 
 type World* = object
   entities: EcsSeq[Entity] = EcsSeq[Entity]()
@@ -55,23 +56,26 @@ proc entityAlreadyExists(id: EntityId): ref Exception =
 
 # Checks
 proc checkIdIsValid(id: EntityId) =
-  if id.value < 0:
-    raise idIsInvalid(id)
+  when CHECKS_ENABLED:
+    if id.value < 0:
+      raise idIsInvalid(id)
 
 
 template checkNotATuple[T](tup: typedesc[T]) =
-  when T is tuple:
+  when T is tuple and CHECKS_ENABLED:
     {.error: "Component type expected, got a tuple: " & $T.}
 
 
 proc checkEntityExists(world: var World, id: EntityId) =
-  if not world.entities.has(id.value):
-    raise entityDoesNotExist(id)
+  when CHECKS_ENABLED:
+    if not world.entities.has(id.value):
+      raise entityDoesNotExist(id)
 
 
 proc checkEntityDoesNotExist(world: var World, id: EntityId) =
-  if world.entities.has(id.value):
-    raise entityAlreadyExists(id)
+  when CHECKS_ENABLED:
+    if world.entities.has(id.value):
+      raise entityAlreadyExists(id)
 
 
 # Archetype creation and book-keeping
@@ -373,7 +377,7 @@ iterator archetypes*(world: var World): Archetype =
 
 
 proc componentIdFrom*[T](world: var World, desc: typedesc[T]): ComponentId =
-  ## Get the ComponentId for a given component type.
+  ## Get the ComponentId for a given component type.
   ## This is mostly useful to identify the components of an archetype.
   result = T.toComponentId
   let id = result.int
@@ -419,8 +423,9 @@ proc read*[T](world: var World, id: EntityId, compDesc: typedesc[T]): T =
 
   checkNotATuple(T)
 
-  if not world.has(id, compDesc):
-    raise componentDoesNotExist(id, compDesc)
+  when CHECKS_ENABLED:
+    if not world.has(id, compDesc):
+      raise componentDoesNotExist(id, compDesc)
 
   let entity = world.entities[id.value]
   let archetype = world.archetypes[entity.archetypeId]
@@ -630,8 +635,9 @@ proc remove*[T: tuple](world: var World, id: EntityId, descriptions: typedesc[T]
   for name, typ in fieldPairs default T:
     let componentId = world.componentIdFrom typeof typ
 
-    if not entity.archetypeId.contains(componentId):
-      raise newException(ValueError, "Component " & $typ & " not found in Entity " & $id)
+    when CHECKS_ENABLED:
+      if not entity.archetypeId.contains(componentId):
+        raise newException(ValueError, "Component " & $typ & " not found in Entity " & $id)
 
     compIdsToRemove.incl componentId
 
