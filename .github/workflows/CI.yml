@@ -12,6 +12,9 @@ on:
       - '*.md'
       - 'docs/*'
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,7 +22,7 @@ jobs:
       matrix:
         nim-version: ['stable']
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - name: Setup nim environment
         uses: jiro4989/setup-nim-action@v1
@@ -31,8 +34,22 @@ jobs:
 
       - name: Running tests
         run: |
-            testament cat /
-            nim c -r -d:ArchetypeWords=2 "tests/manycomponents.nim"
+          testament cat /
+          nim c -r -d:ArchetypeWords=2 "tests/manycomponents.nim"
 
-      - name: Running Benchmarks
+      - name: Download historical bench data
+        run: |
+          curl --fail -s "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/vecs.csv" -o benchs/vecs.csv || echo "No previous vecs.csv found on GitHub Pages, continuing."
+
+      - name: Running new benchmarks
         run: nim c -r -d:danger "benchs/vecs_bench.nim"
+
+      # Only deploy when we are pushing to the main branch
+      - name: Deploy bench data to GitHub Pages
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./benchs
+          destination_dir: .
+          keep_files: true
