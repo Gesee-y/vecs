@@ -24,7 +24,9 @@ type
 
 proc `=destroy`*[T](s: var VSeq[T]) =
   if s.data != nil:
-    zeroMem(s.data, s.cap * sizeof(T))
+    for e in s.mitems:
+      `=destroy`(e)
+    
     dealloc(s.data)
     s.data = nil
     s.len = 0
@@ -238,8 +240,9 @@ proc setLen*[T](s: var VSeq[T]; newLen: int) =
     zeroMem(cast[pointer](cast[int](s.data) + s.len * sizeof(T)),
             (newLen - s.len) * sizeof(T))
   elif newLen < s.len:
-    zeroMem(cast[pointer](cast[int](s.data) + newLen * sizeof(T)),
-            (s.len - newLen) * sizeof(T))
+    for i in newLen..<s.len:
+      `=destroy`(s.data[i])
+
   s.len = newLen
 
 proc setCap*[T](s: var VSeq[T]; newCap: int) =
@@ -265,6 +268,7 @@ proc shrink*[T](s: var VSeq[T]; newCap: int) =
   ## Reduce capacity (must stay >= len).
   if newCap >= s.cap or newCap < s.len:
     return
+
   let newData = cast[ptr UncheckedArray[T]](alloc(newCap * sizeof(T)))
   if s.len > 0:
     copyMem(newData, s.data, s.len * sizeof(T))
@@ -294,11 +298,12 @@ proc delete*[T](s: var VSeq[T]; i: int) =
   if i < 0 or i >= s.len:
     raise newException(IndexDefect, "delete index out of bounds")
   if i < s.len - 1:
+    `=destroy`(s.data[i])
     moveMem(cast[pointer](cast[int](s.data) + i * sizeof(T)),
             cast[pointer](cast[int](s.data) + (i + 1) * sizeof(T)),
             (s.len - 1 - i) * sizeof(T))
+
   dec s.len
-  zeroMem(cast[pointer](cast[int](s.data) + s.len * sizeof(T)), sizeof(T))
 
 proc del*[T](s: var VSeq[T]; i: int) =
   ## Delete element at `i` by swapping with the last element (O(1)).
@@ -308,21 +313,25 @@ proc del*[T](s: var VSeq[T]; i: int) =
     copyMem(cast[pointer](cast[int](s.data) + i * sizeof(T)),
             cast[pointer](cast[int](s.data) + (s.len - 1) * sizeof(T)),
             sizeof(T))
+    `=destroy`(s.data[s.len - 1])
   dec s.len
-  zeroMem(cast[pointer](cast[int](s.data) + s.len * sizeof(T)), sizeof(T))
 
 proc pop*[T](s: var VSeq[T]): T =
   ## Remove and return the last element.
   if s.len <= 0:
     raise newException(IndexDefect, "pop from empty VSeq")
   result = s.data[s.len - 1]
+  `=destroy`(s.data[s.len - 1])
   dec s.len
+
   zeroMem(cast[pointer](cast[int](s.data) + s.len * sizeof(T)), sizeof(T))
 
 proc clear*[T](s: var VSeq[T]) =
   ## Clear all elements (zero the entire buffer, keep capacity).
   if s.data != nil:
-    zeroMem(s.data, s.cap * sizeof(T))
+    for e in s.mitems:
+      `=destroy`(e)
+  
   s.len = 0
 
 # -----------------------------------------------------------------------------
