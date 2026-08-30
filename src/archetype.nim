@@ -10,7 +10,8 @@ import componentid, archetypeid
 type Archetype* = ref object
   id*: ArchetypeId
   componentIds*: seq[ComponentId]
-  componentLists*: Table[ComponentId, EcsSeqAny]
+  toIndexMap*: seq[uint16]
+  componentLists*: seq[EcsSeqAny]
   builders: seq[Builder]
   movers: seq[Mover]
 
@@ -34,14 +35,20 @@ macro fieldTypes*(tup: typed, body: untyped): untyped =
 
 proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder], movers: seq[Mover]): Archetype =
   let archetypeId = archetypeIdFrom componentIds
-  var componentLists = initTable[ComponentId, EcsSeqAny]()
+  var toIndexMap = seq[uint16]()
+  var componentLists = seq[EcsSeqAny]()
 
   for index in 0..<componentIds.len:
     let componentId = componentIds[index]
-    componentLists[componentId] = builders[index]()
+    if componentId >= toIndexMap.len:
+      toIndexMap.setLen(componentId.int + 1)
+
+    toIndexMap[componentId.int] = componentLists.len.uint16
+    componentLists.add builders[index]()
 
   Archetype(
     id: archetypeId,
+    toIndexMap: toIndexMap,
     componentIds: componentIds,
     componentLists: componentLists,
     builders: builders,
@@ -74,13 +81,15 @@ proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archety
 
 iterator entities*(archetype: Archetype): int =
   let firstCompId = archetype.componentIds[0]
-  let firstComponentList = archetype.componentLists[firstCompId]
+  let index = archetype.toIndexMap[firstCompId.int]
+  let firstComponentList = archetype.componentLists[index]
   for index in firstComponentList.ids:
     yield index
 
 
 iterator components*[T](archetype: Archetype, componentId: ComponentId): T =
-  let ecsSeq = archetype.componentLists[componentId]
+  let index = archetype.toIndexMap[componentId.int]
+  let ecsSeq = archetype.componentLists[index]
   for index in ecsSeq.ids:
     yield cast[EcsSeq[T]](ecsSeq)[index]
 
@@ -92,12 +101,14 @@ proc addField[T](ecsSeqAny: EcsSeqAny, item: sink T): int =
 proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
   for name, field in fieldPairs components:
     let componentId = (typeof field).toComponentId
-    result = addField(archetype.componentLists[componentId], field)
+    let index = archetype.toIndexMap[componentId.int]
+    result = addField(archetype.componentLists[index], field)
 
 
 proc add*(archetype: var Archetype, adders: Table[ComponentId, Adder]): int =
   for compId, adder in adders.pairs:
-    result = adder(archetype.componentLists[compId])
+    let index = archetype.toIndexMap[compId.int]
+    result = adder(archetype.componentLists[index])
 
 
 proc remove*(archetype: var Archetype, archetypeEntityId: int) =
@@ -109,19 +120,25 @@ proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArc
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     let mover = fromArchetype.movers[index]
-    var fromEcsSeq = fromArchetype.componentLists[compId]
-    var toEcsSeq = toArchetype.componentLists[compId]
+
+    let fromIndex = fromArchetype.toIndexMap[compId.int]
+    let toIndex = toArchetype.toIndexMap[compId.int]
+
+    var fromEcsSeq = fromArchetype.componentLists[fromIndex]
+    var toEcsSeq = toArchetype.componentLists[toIndex]
     result = mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
 
   for compId, adder in adders.pairs:
-    let index = adder(toArchetype.componentLists[compId])
+    let toIndex = toArchetype.toIndexMap[compId.int]
+    let index = adder(toArchetype.componentLists[toIndex])
     assert result == index
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
-    var fromEcsSeq = fromArchetype.componentLists[compId]
+    let fromIndex = fromArchetype.toIndexMap[compId.int]
+    var fromEcsSeq = fromArchetype.componentLists[fromIndex]
 
     if (toArchetype.id.contains compId):
       let mover = fromArchetype.movers[index]
