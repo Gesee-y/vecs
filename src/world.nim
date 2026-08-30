@@ -279,7 +279,8 @@ macro buildComponentColumns(world: var World, t: typedesc, archetype: untyped): 
               let componentId = `world`.componentIdFrom typeof `componentType`
 
               if `archetype`.contains(componentId):
-                let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[componentId])
+                let ind = `archetype`.getIndex(componentId)
+                let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[ind])
                 componentData(componentList)
               else:
                 cast[ptr UncheckedArray[`componentType`]](nil)
@@ -287,7 +288,8 @@ macro buildComponentColumns(world: var World, t: typedesc, archetype: untyped): 
           quote do:
             block:
               let componentId = `world`.componentIdFrom typeof `componentType`
-              let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[componentId])
+              let ind = `archetype`.getIndex(componentId)
+              let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[ind])
               componentData(componentList)
 
       tupleExprs.add(fieldExpr)
@@ -373,7 +375,7 @@ iterator archetypes*(world: var World): Archetype =
 
 
 proc componentIdFrom*[T](world: var World, desc: typedesc[T]): ComponentId =
-  ## Get the ComponentId for a given component type.
+  ## Get the ComponentId for a given component type.
   ## This is mostly useful to identify the components of an archetype.
   result = T.toComponentId
   let id = result.int
@@ -426,7 +428,8 @@ proc read*[T](world: var World, id: EntityId, compDesc: typedesc[T]): T =
   let archetype = world.archetypes[entity.archetypeId]
   let archetypeEntityId = entity.archetypeEntityId
   let compId = world.componentIdFrom typeof compDesc
-  let ecsSeqAny = archetype.componentLists[compId]
+  let ind = archetype.getIndex(compId)
+  let ecsSeqAny = archetype.componentLists[ind]
 
   type Retype = EcsSeq[T]
   cast[Retype](ecsSeqAny)[archetypeEntityId]
