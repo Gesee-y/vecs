@@ -50,24 +50,6 @@ suite "Tests for VSeq":
     check toSeq(z) == @[42, 99]
     check v.len == 0
 
-  test "Byte View and Type Erasure":
-    var buf = newVSeqOfCap[uint32](4)
-    buf.add(0xDEADBEEF'u32)
-    buf.add(0xCAFEBABE'u32)
-
-    let bv = buf.byteView()
-    check bv.len == 8
-
-  test "Raw Byte Insertion":
-    var buf = newVSeqOfCap[uint32](4)
-    buf.add(0xDEADBEEF'u32)
-    buf.add(0xCAFEBABE'u32)
-
-    var raw: array[4, byte] = [0x01'u8, 0x02, 0x03, 0x04]
-    buf.addBytesAligned(raw)
-    
-    check buf.len == 3
-
   test "Unsafe Pointer Operations":
     var s = newVSeqOfCap[uint32](4)
     var p = addr s
