@@ -24,7 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history: the benchmarks build the baseline commit's src/.
           fetch-depth: 0
 
       - name: Setup nim environment
@@ -40,14 +39,11 @@ jobs:
           testament cat /
           nim c -r -d:ArchetypeWords=2 "tests/manycomponents.nim"
 
-      # Both runs happen on this runner, back to back, so the comparison is not at the
-      # mercy of whichever machine produced a stored baseline days ago.
       - name: Running benchmarks against the baseline commit
         run: |
           set -euo pipefail
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Compare against the tip of the branch the PR targets, not the PR's own parent.
             git fetch --quiet origin "${{ github.base_ref }}"
             baseline="origin/${{ github.base_ref }}"
           else
@@ -62,9 +58,6 @@ jobs:
 
           echo "Baseline: $baseline ($(git rev-parse --short "$baseline"))"
 
-          # Only src/ is taken from the baseline commit. The harness and the benchmark
-          # definitions stay at their current version, so the two runs measure the same
-          # thing and only the library under test changes.
           git checkout "$baseline" -- src
           nim c -r -d:danger --nimcache:nimcache/baseline "benchs/vecs_bench.nim" baseline.csv || rm -f baseline.csv
           git checkout HEAD -- src
