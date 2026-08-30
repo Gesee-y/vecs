@@ -6,6 +6,7 @@ import tables
 import ecsseq
 import componentid, archetypeid
 
+const CHECKS_ENABLED = not defined(danger)
 
 type Archetype* = ref object
   id*: ArchetypeId
@@ -136,7 +137,7 @@ proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArc
   for compId, adder in adders:
     let toIndex = toArchetype.getIndex(compId)
     let index = adder(toArchetype.componentLists[toIndex])
-    assert result == index
+    when CHECKS_ENABLED: assert result == index
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
