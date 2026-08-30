@@ -404,14 +404,14 @@ proc compareWithBaseline*(suite: BenchmarkSuite, csvPath: string,
 
     res.timeRatio = current.timeStats.median / base.timeStats.median
     res.timeImprovement = 
-      (base.timeStats.median - current.timeStats.median) / base.timeStats.median
-    res.timeBetter = res.timeImprovement > 0
+      (current.timeStats.median - base.timeStats.median) / base.timeStats.median
+    res.timeBetter = res.timeImprovement < 0
     res.timeSignificant = abs(res.timeImprovement) > margin
 
     res.memRatio = current.memStats.median / base.memStats.median
     res.memImprovement = 
-      (base.memStats.median - current.memStats.median) / base.memStats.median
-    res.memBetter = res.memImprovement > 0
+      (current.memStats.median - base.memStats.median) / base.memStats.median
+    res.memBetter = res.memImprovement < 0
     res.memSignificant = abs(res.memImprovement) > margin
 
     result.results.add(res)
@@ -423,16 +423,16 @@ proc compareWithBaseline*(suite: BenchmarkSuite, csvPath: string,
 proc `$`*(comp: BenchComp): string =
   var lines: seq[string] = @[]
 
-  let innerWidth = 76
+  let innerWidth = 75
 
   lines.add ""
   lines.add "╔═" & "═".repeat(innerWidth) & "═╗"
   lines.add "║ " & ("Benchmark Comparison: " & comp.suiteName).alignLeft(innerWidth) & " ║"
   lines.add "║ " & ("Baseline: " & comp.baselineFile).alignLeft(innerWidth) & " ║"
   lines.add "║ " & ("Significance margin: " & prettyPercent(comp.margin)).alignLeft(innerWidth) & " ║"
-  lines.add "╠═" & "═".repeat(24) & "═╪" & "═".repeat(12) & "═╪" & "═".repeat(12) & "═╪" & "═".repeat(24) & "═╣"
+  lines.add "╠═" & "═".repeat(24) & "═╪" & "═".repeat(11) & "═╪" & "═".repeat(11) & "═╪" & "═".repeat(23) & "═╣"
   lines.add "║ " & "Benchmark".alignLeft(24) & " │ " & "Time".alignLeft(10) & " │ " & "Memory".alignLeft(10) & " │ " & "Status".alignLeft(22) & " ║"
-  lines.add "╠═" & "═".repeat(24) & "═╪" & "═".repeat(12) & "═╪" & "═".repeat(12) & "═╪" & "═".repeat(24) & "═╣"
+  lines.add "╠═" & "═".repeat(24) & "═╪" & "═".repeat(11) & "═╪" & "═".repeat(11) & "═╪" & "═".repeat(23) & "═╣"
 
   for res in comp.results:
     let name = (if res.missingInBaseline: res.name & "*" else: res.name).alignLeft(24)
@@ -441,7 +441,7 @@ proc `$`*(comp: BenchComp): string =
       if res.missingInBaseline:
         "N/A"
       elif res.timeSignificant:
-        (if res.timeBetter: "▼ " else: "▲ ") & prettyPercent(abs(res.timeImprovement))
+        (if res.timeBetter: "▼ " else: "▲ ") & prettyPercent(res.timeImprovement)
       else:
         "≈ " & prettyPercent(abs(res.timeImprovement))
 
@@ -449,7 +449,7 @@ proc `$`*(comp: BenchComp): string =
       if res.missingInBaseline:
         "N/A"
       elif res.memSignificant:
-        (if res.memBetter: "▼ " else: "▲ ") & prettyPercent(abs(res.memImprovement))
+        (if res.memBetter: "▼ " else: "▲ ") & prettyPercent(res.memImprovement)
       else:
         "≈ " & prettyPercent(abs(res.memImprovement))
 
@@ -470,7 +470,7 @@ proc `$`*(comp: BenchComp): string =
 
     lines.add "║ " & name & " │ " & timeTxt.alignLeft(10) & " │ " & memTxt.alignLeft(10) & " │ " & status.alignLeft(22) & " ║"
 
-  lines.add "╚═" & "═".repeat(24) & "═╧" & "═".repeat(12) & "═╧" & "═".repeat(12) & "═╧" & "═".repeat(24) & "═╝"
+  lines.add "╚═" & "═".repeat(24) & "═╧" & "═".repeat(11) & "═╧" & "═".repeat(11) & "═╧" & "═".repeat(23) & "═╝"
 
   if comp.missingInCurrent.len > 0:
     lines.add ""
