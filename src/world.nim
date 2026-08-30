@@ -454,8 +454,9 @@ iterator write*[T](world: var World, id: EntityId, compDesc: typedesc[T]): var T
   let archetypeEntityId = entity.archetypeEntityId
   let compId = world.componentIdFrom typeof T
 
-  if archetype.componentLists.hasKey(compId):
-    let ecsSeqAny = archetype.componentLists[compId]
+  if archetype.hasKey(compId):
+    let index = archetype.getIndex(compId)
+    let ecsSeqAny = archetype.componentLists[index]
     type Retype = EcsSeq[T]
     yield cast[Retype](ecsSeqAny)[archetypeEntityId]
 
@@ -999,7 +1000,8 @@ proc snapshot*(world: var World, id: EntityId): Snapshot =
   for compId in archetype.componentIds:
     if compId != metaId:
       let getter = world.getters[compId.int]
-      result.componentData[compId] = getter(archetype.componentLists[compId], archetypeEntityId)
+      let index = archetype.getIndex(compId)
+      result.componentData[compId] = getter(archetype.componentLists[index], archetypeEntityId)
 
 
 proc makeRestoringAdder(mover: Mover, snapshotSeq: EcsSeqAny): Adder =
