@@ -62,7 +62,7 @@ proc checkIdIsValid(id: EntityId) =
 
 
 template checkNotATuple[T](tup: typedesc[T]) =
-  when T is tuple and CHECKS_ENABLED:
+  when T is tuple:
     {.error: "Component type expected, got a tuple: " & $T.}
 
 
