@@ -204,8 +204,9 @@ macro accessTuple(t: typedesc): untyped =
 
 
 template accessor[T](world: var World, archetype: Archetype, archetypeEntityId: int): T =
+  let ind = archetype.getIndex(world.componentIdFrom typeof T)
   cast[EcsSeq[T]](
-    archetype.componentLists[world.componentIdFrom typeof T]
+    archetype.componentLists[ind]
   )[archetypeEntityId]
 
 
@@ -903,7 +904,8 @@ iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T)
 
   for archetypeId in ofType.matchedArchetypes:
     let archetype = world.archetypes[archetypeId]
-    let metaComponents = cast[EcsSeq[Meta]](archetype.componentLists[metaComponentId])
+    let ind = archetype.getIndex(metaComponentId)
+    let metaComponents = cast[EcsSeq[Meta]](archetype.componentLists[ind])
 
     for archetypeEntityId in metaComponents.ids:
       let meta = addr metaComponents[archetypeEntityId]
