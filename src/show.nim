@@ -26,7 +26,7 @@ proc getArchetypeTable[T: tuple](world: var World, archetype: Archetype, maxWidt
   for name, typ in fieldPairs default T:
     let componentId = world.componentIdFrom typeof typ
 
-    if archetype.componentLists.hasKey(componentId):
+    if archetype.hasKey(componentId):
       var column = @[ @[ $typeof(typ)] ]
 
       for component in components[typeof typ](archetype, componentId):

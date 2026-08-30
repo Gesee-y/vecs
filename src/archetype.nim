@@ -11,10 +11,18 @@ const CHECKS_ENABLED = not defined(danger)
 type Archetype* = ref object
   id*: ArchetypeId
   componentIds*: seq[ComponentId]
-  componentLists*: Table[ComponentId, EcsSeqAny]
+  toIndexMap*: seq[uint16]
+  componentLists*: seq[EcsSeqAny]
   builders: seq[Builder]
   movers: seq[Mover]
 
+
+proc hasKey*(archetype: Archetype, comp: ComponentId): bool =
+  let id = comp.int
+  return id < archetype.toIndexMap.len and archetype.toIndexMap[id] != 0
+
+proc getIndex*(archetype: Archetype, comp: ComponentId): uint16 =
+  return archetype.toIndexMap[comp.int] - 1
 
 macro fieldTypes*(tup: typed, body: untyped): untyped =
   result = newStmtList()
@@ -35,14 +43,20 @@ macro fieldTypes*(tup: typed, body: untyped): untyped =
 
 proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder], movers: seq[Mover]): Archetype =
   let archetypeId = archetypeIdFrom componentIds
-  var componentLists = initTable[ComponentId, EcsSeqAny]()
+  var toIndexMap: seq[uint16]
+  var componentLists: seq[EcsSeqAny]
 
   for index in 0..<componentIds.len:
     let componentId = componentIds[index]
-    componentLists[componentId] = builders[index]()
+    if componentId.int >= toIndexMap.len:
+      toIndexMap.setLen(componentId.int + 1)
+
+    toIndexMap[componentId.int] = componentLists.len.uint16 + 1
+    componentLists.add builders[index]()
 
   Archetype(
     id: archetypeId,
+    toIndexMap: toIndexMap,
     componentIds: componentIds,
     componentLists: componentLists,
     builders: builders,
@@ -75,15 +89,17 @@ proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archety
 
 iterator entities*(archetype: Archetype): int =
   let firstCompId = archetype.componentIds[0]
-  let firstComponentList = archetype.componentLists[firstCompId]
-  for index in firstComponentList.ids:
-    yield index
+  let index = archetype.getIndex(firstCompId)
+  let firstComponentList = archetype.componentLists[index]
+  for i in firstComponentList.ids:
+    yield i
 
 
 iterator components*[T](archetype: Archetype, componentId: ComponentId): T =
-  let ecsSeq = archetype.componentLists[componentId]
-  for index in ecsSeq.ids:
-    yield cast[EcsSeq[T]](ecsSeq)[index]
+  let index = archetype.getIndex(componentId)
+  let ecsSeq = archetype.componentLists[index]
+  for i in ecsSeq.ids:
+    yield cast[EcsSeq[T]](ecsSeq)[i]
 
 
 proc addField[T](ecsSeqAny: EcsSeqAny, item: sink T): int =
@@ -93,16 +109,18 @@ proc addField[T](ecsSeqAny: EcsSeqAny, item: sink T): int =
 proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
   for name, field in fieldPairs components:
     let componentId = (typeof field).toComponentId
-    result = addField(archetype.componentLists[componentId], field)
+    let index = archetype.getIndex(componentId)
+    result = addField(archetype.componentLists[index], field)
 
 
 proc add*(archetype: var Archetype, adders: Table[ComponentId, Adder]): int =
   for compId, adder in adders.pairs:
-    result = adder(archetype.componentLists[compId])
+    let index = archetype.getIndex(compId)
+    result = adder(archetype.componentLists[index])
 
 
 proc remove*(archetype: var Archetype, archetypeEntityId: int) =
-  for components in archetype.componentLists.values:
+  for components in archetype.componentLists:
     components.del archetypeEntityId
 
 
@@ -110,23 +128,27 @@ proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArc
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     let mover = fromArchetype.movers[index]
-    var fromEcsSeq = fromArchetype.componentLists[compId]
-    var toEcsSeq = toArchetype.componentLists[compId]
+    let toIndex = toArchetype.getIndex(compId)
+
+    var fromEcsSeq = fromArchetype.componentLists[index]
+    var toEcsSeq = toArchetype.componentLists[toIndex]
     result = mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
 
-  for compId, adder in adders.pairs:
-    let index = adder(toArchetype.componentLists[compId])
+  for compId, adder in adders:
+    let toIndex = toArchetype.getIndex(compId)
+    let index = adder(toArchetype.componentLists[toIndex])
     when CHECKS_ENABLED: assert result == index
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
-    var fromEcsSeq = fromArchetype.componentLists[compId]
+    var fromEcsSeq = fromArchetype.componentLists[index]
 
     if (toArchetype.id.contains compId):
       let mover = fromArchetype.movers[index]
-      var toEcsSeq = toArchetype.componentLists[compId]
+      let toIndex = toArchetype.getIndex(compId)
+      var toEcsSeq = toArchetype.componentLists[toIndex]
       result = mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
     else:
       fromEcsSeq.del fromArchetypeEntityId
@@ -145,5 +167,5 @@ proc disjointed*(archetype: Archetype, candidateId: ArchetypeId): bool =
 
 
 proc isEmpty*(archetype: Archetype): bool =
-  for componentList in archetype.componentLists.values:
+  for componentList in archetype.componentLists:
     return componentList.len == 0

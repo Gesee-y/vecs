@@ -208,8 +208,9 @@ macro accessTuple(t: typedesc): untyped =
 
 
 template accessor[T](world: var World, archetype: Archetype, archetypeEntityId: int): T =
+  let ind = archetype.getIndex(world.componentIdFrom typeof T)
   cast[EcsSeq[T]](
-    archetype.componentLists[world.componentIdFrom typeof T]
+    archetype.componentLists[ind]
   )[archetypeEntityId]
 
 
@@ -283,7 +284,8 @@ macro buildComponentColumns(world: var World, t: typedesc, archetype: untyped): 
               let componentId = `world`.componentIdFrom typeof `componentType`
 
               if `archetype`.contains(componentId):
-                let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[componentId])
+                let ind = `archetype`.getIndex(componentId)
+                let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[ind])
                 componentData(componentList)
               else:
                 cast[ptr UncheckedArray[`componentType`]](nil)
@@ -291,7 +293,8 @@ macro buildComponentColumns(world: var World, t: typedesc, archetype: untyped): 
           quote do:
             block:
               let componentId = `world`.componentIdFrom typeof `componentType`
-              let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[componentId])
+              let ind = `archetype`.getIndex(componentId)
+              let componentList = cast[EcsSeq[`componentType`]](`archetype`.componentLists[ind])
               componentData(componentList)
 
       tupleExprs.add(fieldExpr)
@@ -431,7 +434,8 @@ proc read*[T](world: var World, id: EntityId, compDesc: typedesc[T]): T =
   let archetype = world.archetypes[entity.archetypeId]
   let archetypeEntityId = entity.archetypeEntityId
   let compId = world.componentIdFrom typeof compDesc
-  let ecsSeqAny = archetype.componentLists[compId]
+  let ind = archetype.getIndex(compId)
+  let ecsSeqAny = archetype.componentLists[ind]
 
   type Retype = EcsSeq[T]
   cast[Retype](ecsSeqAny)[archetypeEntityId]
@@ -459,8 +463,9 @@ iterator write*[T](world: var World, id: EntityId, compDesc: typedesc[T]): var T
   let archetypeEntityId = entity.archetypeEntityId
   let compId = world.componentIdFrom typeof T
 
-  if archetype.componentLists.hasKey(compId):
-    let ecsSeqAny = archetype.componentLists[compId]
+  if archetype.hasKey(compId):
+    let index = archetype.getIndex(compId)
+    let ecsSeqAny = archetype.componentLists[index]
     type Retype = EcsSeq[T]
     yield cast[Retype](ecsSeqAny)[archetypeEntityId]
 
@@ -905,7 +910,8 @@ iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T)
 
   for archetypeId in ofType.matchedArchetypes:
     let archetype = world.archetypes[archetypeId]
-    let metaComponents = cast[EcsSeq[Meta]](archetype.componentLists[metaComponentId])
+    let ind = archetype.getIndex(metaComponentId)
+    let metaComponents = cast[EcsSeq[Meta]](archetype.componentLists[ind])
 
     for archetypeEntityId in metaComponents.ids:
       let meta = addr metaComponents[archetypeEntityId]
@@ -1005,7 +1011,8 @@ proc snapshot*(world: var World, id: EntityId): Snapshot =
   for compId in archetype.componentIds:
     if compId != metaId:
       let getter = world.getters[compId.int]
-      result.componentData[compId] = getter(archetype.componentLists[compId], archetypeEntityId)
+      let index = archetype.getIndex(compId)
+      result.componentData[compId] = getter(archetype.componentLists[index], archetypeEntityId)
 
 
 proc makeRestoringAdder(mover: Mover, snapshotSeq: EcsSeqAny): Adder =
