@@ -27,26 +27,19 @@ suite "VSeq with ref types - addAndZero safety":
     var sequence = newVSeqOfCap[ref A](4)
     sequence.addAndZero(refA)
 
+    check refA.isNil
     check sequence.len == 1
     check sequence[0].x == 42
 
-  test "ref type: sink copy is zeroed, stored ref stays valid after addAndZero":
-    var refA: ref A = new A
-    refA.x = 99
-
+  test "ref type: ref declared in block survive, even after GC collect":
     var sequence = newVSeqOfCap[ref A](4)
-    sequence.addAndZero(refA)
+      
+    block:
+      var refA: ref A = new A
+      refA.x = 99
+      sequence.addAndZero(refA)
 
-    check refA.isNil
-    check sequence[0] != nil
-    check sequence[0].x == 99
-
-  test "ref type: add then drop reference":
-    var refA: ref A = new A
-    refA.x = 99
-
-    var sequence = newVSeqOfCap[ref A](4)
-    sequence.addAndZero(refA)
+    GC_fullCollect()
 
     check sequence[0] != nil
     check sequence[0].x == 99

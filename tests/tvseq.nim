@@ -58,3 +58,4 @@ suite "Tests for VSeq":
     unsafeAdd(p, addr raw[0])
     
     check s.len == 1
+    check s[0] == cast[uint32](raw)
