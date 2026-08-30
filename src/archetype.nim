@@ -120,29 +120,25 @@ proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArc
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     let mover = fromArchetype.movers[index]
-
-    let fromIndex = fromArchetype.toIndexMap[compId.int]
     let toIndex = toArchetype.toIndexMap[compId.int]
 
-    var fromEcsSeq = fromArchetype.componentLists[fromIndex]
+    var fromEcsSeq = fromArchetype.componentLists[index]
     var toEcsSeq = toArchetype.componentLists[toIndex]
     result = mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
 
-  for compId, adder in adders.pairs:
-    let toIndex = toArchetype.toIndexMap[compId.int]
-    let index = adder(toArchetype.componentLists[toIndex])
+    let addIndex = adder(toArchetype.componentLists[toIndex])
     assert result == index
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
-    let fromIndex = fromArchetype.toIndexMap[compId.int]
-    var fromEcsSeq = fromArchetype.componentLists[fromIndex]
+    var fromEcsSeq = fromArchetype.componentLists[index]
 
     if (toArchetype.id.contains compId):
       let mover = fromArchetype.movers[index]
-      var toEcsSeq = toArchetype.componentLists[compId]
+      let toIndex = toArchetype.toIndexMap[compId.int]
+      var toEcsSeq = toArchetype.componentLists[toIndex]
       result = mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
     else:
       fromEcsSeq.del fromArchetypeEntityId
