@@ -18,12 +18,6 @@ type
     stride*: int
     data*: ptr UncheckedArray[T]
 
-  VSeqByteView* = object
-    ## Non-owning byte view into a VSeq (type erasure).
-    data*: ptr UncheckedArray[byte]
-    len*: int
-    cap*: int
-
 # -----------------------------------------------------------------------------
 # Lifetime hooks (ARC / ORC)
 # -----------------------------------------------------------------------------
@@ -397,53 +391,3 @@ proc toOpenArray*[T](s: VSeq[T]): openArray[T] =
   ## Borrow as an openArray.
   toOpenArray(s.data, 0, s.len - 1)
 
-# -----------------------------------------------------------------------------
-# Byte view / type erasure
-# -----------------------------------------------------------------------------
-
-proc byteView*[T](s: VSeq[T]): VSeqByteView {.inline.} =
-  ## Non-owning byte view into the sequence (type erasure).
-  result.data = cast[ptr UncheckedArray[byte]](s.data)
-  result.len = s.len * sizeof(T)
-  result.cap = s.cap * sizeof(T)
-
-proc byteData*[T](s: VSeq[T]): ptr UncheckedArray[byte] {.inline.} =
-  cast[ptr UncheckedArray[byte]](s.data)
-
-proc byteLen*[T](s: VSeq[T]): int {.inline.} = s.len * sizeof(T)
-proc byteCap*[T](s: VSeq[T]): int {.inline.} = s.cap * sizeof(T)
-
-proc toOpenArrayBytes*[T](s: VSeq[T]): openArray[byte] =
-  ## Borrow as a byte openArray.
-  toOpenArray(cast[ptr UncheckedArray[byte]](s.data), 0, s.len * sizeof(T) - 1)
-
-proc addBytes*[T](s: var VSeq[T]; data: openArray[byte]) =
-  ## Append raw bytes. The element count is rounded up so the buffer
-  ## can hold all bytes. Best used when `data.len` is a multiple of `sizeof(T)`.
-  if data.len == 0: return
-  let oldByteLen = s.len * sizeof(T)
-  let newByteLen = oldByteLen + data.len
-  let newElemCap = (newByteLen + sizeof(T) - 1) div sizeof(T)
-  ensureCap(s, newElemCap)
-  copyMem(cast[pointer](cast[int](s.data) + oldByteLen),
-          unsafeAddr data[0], data.len)
-  s.len = newElemCap
-
-proc addBytesAligned*[T](s: var VSeq[T]; data: openArray[byte]) =
-  ## Append raw bytes requiring `data.len` to be a multiple of `sizeof(T)`.
-  if data.len == 0: return
-  if data.len mod sizeof(T) != 0:
-    raise newException(ValueError,
-      "addBytesAligned: data.len (" & $data.len & ") must be a multiple of sizeof(T) (" & $sizeof(T) & ")")
-  let oldByteLen = s.len * sizeof(T)
-  let newByteLen = oldByteLen + data.len
-  let newElemLen = newByteLen div sizeof(T)
-  ensureCap(s, newElemLen)
-  copyMem(cast[pointer](cast[int](s.data) + oldByteLen),
-          unsafeAddr data[0], data.len)
-  s.len = newElemLen
-
-proc setByteLen*[T](s: var VSeq[T]; newByteLen: int) =
-  ## Resize by byte count (rounded up to element count for capacity).
-  let newLen = (newByteLen + sizeof(T) - 1) div sizeof(T)
-  setLen(s, newLen)
