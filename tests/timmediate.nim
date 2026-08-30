@@ -5,6 +5,12 @@ import unittest
 import std/assertions
 import ../src/[examples, vecs, operationmodes]
 
+type
+  A = object
+    value: int
+
+  B = object
+    value: int
 
 suite "Immediate operations should":
   setup:
