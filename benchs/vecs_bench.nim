@@ -1,4 +1,4 @@
-import times, math, tables, random
+import times, math, tables, random, os
 import helpers/[benchmarks, churn_common, common]
 import ../src/vecs
 
@@ -235,8 +235,15 @@ proc runVecsBenchmarks(): BenchmarkSuite =
   return suite
 
 if isMainModule:
+  let outCsv = if paramCount() >= 1: paramStr(1) else: "benchs/vecs.csv"
+  let baselineCsv = if paramCount() >= 2: paramStr(2) else: outCsv
+
   let suite = runVecsBenchmarks()
   suite.showSummary()
-  
-  echo compareWithBaseline(suite, "benchs/vecs.csv")
-  suite.saveSummary("benchs/vecs")
+
+  if fileExists(baselineCsv):
+    echo compareWithBaseline(suite, baselineCsv)
+  else:
+    echo "No baseline at ", baselineCsv, ", skipping comparison."
+
+  suite.saveSummary(outCsv)

@@ -16,3 +16,8 @@ tests/world
 tests/events
 tests/manycomponents
 
+benchs/vecs_bench
+benchs/vecs.csv
+baseline.csv
+current.csv
+

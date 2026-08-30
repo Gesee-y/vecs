@@ -305,8 +305,8 @@ proc showSummary*(suite: BenchmarkSuite) =
 
   echo "╚═", "═".repeat(60), "═╝"
 
-proc saveSummary*(suite: BenchmarkSuite, name: string) =
-  var file = open(name & ".csv", fmWrite)
+proc saveSummary*(suite: BenchmarkSuite, path: string) =
+  var file = open(path, fmWrite)
   defer: file.close()
 
   file.writeLine(suite.name & ",time_median,mem_median,time_seconds,mem_bytes")
