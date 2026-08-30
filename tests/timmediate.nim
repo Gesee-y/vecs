@@ -64,6 +64,13 @@ suite "Immediate operations should":
     checkpoint("Marcus should have a weapon.")
     check world.has(marcusId, Weapon)
 
+  test "preserve data when moving between archetypes":
+    let ab = world.add((A(value: 1),), Immediate)
+
+    # Now add B to it - this triggers moveAdding
+    world.add(ab, B(value: 2), Immediate)
+    check world.read(ab, A).value == 1
+    check world.read(ab, B).value == 2
 
   test "add multiple components immediately":
     var sword = (Weapon(name: "Sword", attack: 10))
