@@ -11,7 +11,9 @@ export events
 const CHECKS_ENABLED = not defined(danger)
 
 type World* = object
-  entities: EcsSeq[Entity] = EcsSeq[Entity]()
+  entities: seq[Entity] = @[]
+  entityDeleted: seq[bool] = @[]
+  entityFree: seq[int] = @[]
   archIdToIndex: Table[ArchetypeId, int]
   archetypes: seq[Archetype]
   builders: seq[Builder]
@@ -66,15 +68,59 @@ template checkNotATuple[T](tup: typedesc[T]) =
     {.error: "Component type expected, got a tuple: " & $T.}
 
 
+proc has*(world: var World, id: EntityId): bool =
+  ## Check if an entity exists.
+  id.value >= 0 and
+  id.value < world.entityDeleted.len and
+  not world.entityDeleted[id.value]
+
+
+proc allocateEntity(world: var World, entity: Entity): EntityId =
+  if world.entityFree.len > 0:
+    let id = world.entityFree.pop()
+    world.entityDeleted[id] = false
+    world.entities[id] = entity
+    result = EntityId(value: id)
+  else:
+    let id = world.entityDeleted.len
+    world.entityDeleted.add false
+    world.entities.add entity
+    result = EntityId(value: id)
+
+
+proc deleteEntity(world: var World, id: EntityId) =
+  world.entityDeleted[id.value] = true
+  world.entityFree.add id.value
+
+
+proc setEntityAt(world: var World, id: EntityId, entity: Entity) =
+  if id.value >= world.entities.len:
+    let oldLen = world.entities.len
+    world.entities.setLen(id.value + 1)
+    world.entityDeleted.setLen(id.value + 1)
+
+    for i in oldLen ..< id.value:
+      world.entityDeleted[i] = true
+      world.entityFree.add i
+
+  if world.entityDeleted[id.value]:
+    let freeIndex = world.entityFree.find(id.value)
+    if freeIndex >= 0:
+      world.entityFree.del(freeIndex)
+
+  world.entities[id.value] = entity
+  world.entityDeleted[id.value] = false
+
+
 proc checkEntityExists(world: var World, id: EntityId) =
   when CHECKS_ENABLED:
-    if not world.entities.has(id.value):
+    if not world.has(id):
       raise entityDoesNotExist(id)
 
 
 proc checkEntityDoesNotExist(world: var World, id: EntityId) =
   when CHECKS_ENABLED:
-    if world.entities.has(id.value):
+    if world.has(id):
       raise entityAlreadyExists(id)
 
 
@@ -337,7 +383,7 @@ proc consolidateRemoveEntity(world: var World, id: EntityId) =
   var archetype = world.archetypes[entity.archetypeIndex]
 
   archetype.remove entity.archetypeEntityId
-  world.entities.del id.value
+  world.deleteEntity id
 
 
 proc consolidateAddComponents(world: var World, id: EntityId, componentAddersById: Table[ComponentId, Adder]) =
@@ -583,8 +629,8 @@ proc add*[T: tuple](world: var World, id: EntityId, components: T, mode: Operati
       raise newException(ValueError, "Component " & $(typeof value) & " already exists in Entity " & $id)
 
     let component = value
-    let adder = proc(ecsSeq: var EcsSeqAny): int =
-      cast[EcsSeq[typeof value]](ecsSeq).add component
+    let adder = proc(ecsSeq: var EcsSeqAny, slot: int) =
+      cast[EcsSeq[typeof value]](ecsSeq).addAt(slot, component)
 
     addersById[componentId] = adder
 
@@ -709,8 +755,7 @@ proc add*[T: tuple](world: var World, components: T, mode: OperationMode = Defer
     let archetypeIndex = world.archetypeFrom WithMeta(T)
     let archetypeEntityId = world.archetypes[archetypeIndex].add withMeta(components)
     let entity = Entity(archetypeIndex: archetypeIndex, archetypeEntityId: archetypeEntityId)
-    let id = world.entities.add entity
-    result = EntityId(value: id)
+    result = world.allocateEntity(entity)
 
     for meta in world.write(result, Meta):
       meta.id = result
@@ -718,8 +763,7 @@ proc add*[T: tuple](world: var World, components: T, mode: OperationMode = Defer
     let archetypeIndex = world.archetypeFrom (Meta,)
     let archetypeEntityId = world.archetypes[archetypeIndex].add (Meta(),)
     let entity = Entity(archetypeIndex: archetypeIndex, archetypeEntityId: archetypeEntityId)
-    let id = world.entities.add entity
-    result = EntityId(value: id)
+    result = world.allocateEntity(entity)
 
     for meta in world.write(result, Meta):
       meta.id = result
@@ -742,8 +786,7 @@ proc addEmpty*(world: var World): EntityId {.discardable.} =
   let archetypeIndex = world.archetypeFrom (Meta,)
   let archetypeEntityId = world.archetypes[archetypeIndex].add (Meta(),)
   let entity = Entity(archetypeIndex: archetypeIndex, archetypeEntityId: archetypeEntityId)
-  let id = world.entities.add entity
-  result = EntityId(value: id)
+  result = world.allocateEntity(entity)
 
   for meta in world.write(result, Meta):
     meta.id = result
@@ -766,7 +809,7 @@ proc addWithSpecificId*(world: var World, id: EntityId) =
   let archetypeIndex = world.archetypeFrom (Meta,)
   let archetypeEntityId = world.archetypes[archetypeIndex].add (Meta(id: id),)
   let entity = Entity(archetypeIndex: archetypeIndex, archetypeEntityId: archetypeEntityId)
-  world.entities.addAt(id.value, entity)
+  world.setEntityAt(id, entity)
 
 proc remove*(world: var World, id: EntityId, mode: OperationMode = Deferred) =
   ## Remove an entity from the world.
@@ -800,19 +843,6 @@ proc remove*(world: var World, id: EntityId, mode: OperationMode = Deferred) =
       meta.enqueueOperation(operation)
 
     world.toConsolidate.incl id
-
-
-proc has*(world: var World, id: EntityId): bool =
-  ## Check if an entity exists.
-  runnableExamples:
-    import examples
-
-    var w = World()
-    let marcus = w.add (Character(name: "Marcus"),)
-    assert w.has(marcus) == true
-    assert w.has(EntityId(value: 10)) == false
-
-  world.entities.has(id.value)
 
 
 proc applyQueryOperations[T: tuple](world: var World, query: var Query[T]) {.inline.} =
@@ -922,7 +952,7 @@ iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T)
     let ind = archetype.getIndex(metaComponentId)
     let metaComponents = cast[EcsSeq[Meta]](archetype.componentLists[ind])
 
-    for archetypeEntityId in metaComponents.ids:
+    for archetypeEntityId in archetype.entities:
       let meta = addr metaComponents[archetypeEntityId]
 
       for operation in meta[].operations:
@@ -961,11 +991,19 @@ proc cleanupEmptyArchetypes*(world: var World) =
     inc world.version
     world.archetypes = newArchetypes
     world.archIdToIndex = newArchIdToIndex
-    for id in world.entities.ids:
-      var entity = world.entities[id]
-      if oldIndexToNewIndex.hasKey(entity.archetypeIndex):
-        entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex]
-        world.entities[id] = entity
+    if world.entityFree.len == 0:
+      for id in 0 ..< world.entityDeleted.len:
+        var entity = world.entities[id]
+        if oldIndexToNewIndex.hasKey(entity.archetypeIndex):
+          entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex]
+          world.entities[id] = entity
+    else:
+      for id in 0 ..< world.entityDeleted.len:
+        if not world.entityDeleted[id]:
+          var entity = world.entities[id]
+          if oldIndexToNewIndex.hasKey(entity.archetypeIndex):
+            entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex]
+            world.entities[id] = entity
 
 
 proc consolidate*(world: var World) =
@@ -1034,9 +1072,9 @@ proc snapshot*(world: var World, id: EntityId): Snapshot =
 
 
 proc makeRestoringAdder(mover: Mover, snapshotSeq: EcsSeqAny): Adder =
-  result = proc(toEcsSeq: var EcsSeqAny): int =
+  result = proc(toEcsSeq: var EcsSeqAny, slot: int) =
     var fromSeq: EcsSeqAny = snapshotSeq
-    mover(fromSeq, 0, toEcsSeq)
+    mover(fromSeq, 0, toEcsSeq, slot)
 
 
 proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
