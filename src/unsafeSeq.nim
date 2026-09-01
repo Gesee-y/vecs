@@ -146,7 +146,28 @@ proc newVSeq*[T](len: int): VSeq[T] =
   result = VSeq[T](len: len)
   ensureCap(result, len)
 
-proc len*[T](s: VSeq[T]) = s.len
+proc len*[T](s: VSeq[T]): int = s.len
+
+proc `[]`*[T](s: VSeq[T], i: int): lent T {.inline.} =
+  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
+  s.payload.data[i]
+
+proc `[]`*[T](s: var VSeq[T], i: int): var T {.inline.} =
+  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
+  s.payload.data[i]
+
+proc `[]`*[T](s: VSeq[T], i: BackwardsIndex): lent T {.inline.} =
+  s[s.len - i.int]
+
+proc `[]`*[T](s: var VSeq[T], i: BackwardsIndex): var T {.inline.} =
+  s[s.len - i.int]
+
+proc `[]=`*[T](s: var VSeq[T], i: int, v: sink T) {.inline.} =
+  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
+  s.payload.data[i] = v
+
+proc `[]=`*[T](s: var VSeq[T], i: BackwardsIndex, v: sink T) {.inline.} =
+  s[s.len - i.int] = v
 
 proc shrink*[T](s: var VSeq[T], newLen: int) =
   assert newLen <= s.len, "Can't shrink to greater than the sequences length"
@@ -165,20 +186,6 @@ proc setLen*[T](s: var VSeq[T], newLen: int) =
     grow(s, newLen)
   else:
     shrink(s, newLen)
-
-template `[]`*[T](s: VSeq[T], i: untyped): T =
-  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
-  s.payload.data[i]
-
-template `[]`*[T](s: VSeq[T], i: BackwardsIndex): T =
-  s[s.len - i.int]
-
-template `[]=`*[T](s: var VSeq[T], i: untyped, v: T) =
-  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
-  s.payload.data[i] = v
-
-template `[]=`*[T](s: var VSeq[T], i: BackwardsIndex, v: T) =
-  s[s.len - i.int] = v
 
 proc unsafeAddAndZero*(v: pointer, source: ptr byte, stride: int) =
   v.unsafeAdd(source, stride)
