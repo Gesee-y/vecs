@@ -11,34 +11,34 @@ type
     a: ref A
 
 
-proc addAndZero[T](s: var seq[T]; val: var T) =
+proc addAndZero[T](s: var VSeq[T]; val: var T) =
   let source  = cast[ptr byte](addr val)
   let seqVar  = cast[pointer](addr s)
   seqVar.unsafeAdd(source, sizeof(T))
   zeroMem(source, sizeof(T))
 
 
-suite "unsafeSeq - type-erased operations on seq internals":
+suite "unsafeSeq - type-erased operations on VSeq internals":
 
   test "unsafeSeqLen reads seq len":
-    var s = @[1, 2, 3]
+    var s = newVSeq[int](3)
     check unsafeSeqLen(addr s) == 3
 
   test "unsafeSeqCap reads seq capacity":
-    var s = newSeqOfCap[int](8)
+    var s = newVSeqOfCap[int](8)
     check unsafeSeqCap(addr s) >= 8
 
   test "unsafeSeqCap on empty seq is zero":
-    var s: seq[int]
+    var s: VSeq[int]
     check unsafeSeqCap(addr s) == 0
 
   test "unsafeSeqDataPtr matches address of first element":
-    var s = @[10, 20, 30]
+    var s = newVSeq[int](3)
     let rawData = unsafeSeqDataPtr(addr s)
     check rawData == addr s[0]
 
   test "unsafeAdd appends a plain int":
-    var s: seq[int]
+    var s: VSeq[int]
     var value = 42
     let seqVar = cast[pointer](addr s)
     seqVar.unsafeAdd(cast[ptr byte](addr value), sizeof(int))
@@ -47,7 +47,7 @@ suite "unsafeSeq - type-erased operations on seq internals":
     check s[0] == 42
 
   test "unsafeAdd triggers growth beyond initial capacity":
-    var s = newSeqOfCap[int](2)
+    var s = newVSeqOfCap[int](2)
     for i in 0 ..< 10:
       var value = i
       let seqVar = cast[pointer](addr s)
@@ -61,7 +61,7 @@ suite "unsafeSeq - type-erased operations on seq internals":
     var refA: ref A = new A
     refA.x = 99
 
-    var s: seq[ref A]
+    var s: VSeq[ref A]
     s.addAndZero(refA)
 
     check s.len == 1
@@ -72,13 +72,13 @@ suite "unsafeSeq - type-erased operations on seq internals":
     var refA: ref A = new A
     refA.x = 7
 
-    var s: seq[ref A]
+    var s: VSeq[ref A]
     s.addAndZero(refA)
 
     check refA == nil
 
   test "addAndZero: ref type survives GC collect after source is gone":
-    var s: seq[ref A]
+    var s: VSeq[ref A]
 
     block:
       var refA: ref A = new A
@@ -91,7 +91,7 @@ suite "unsafeSeq - type-erased operations on seq internals":
     check s[0].x == 55
 
   test "addAndZero: multiple refs all readable":
-    var s: seq[ref A]
+    var s: VSeq[ref A]
 
     for i in 0 ..< 5:
       var refA: ref A = new A
@@ -103,7 +103,7 @@ suite "unsafeSeq - type-erased operations on seq internals":
       check s[i].x == i * 10
 
   test "addAndZero: growth preserves all refs":
-    var s = newSeqOfCap[ref A](1)
+    var s = newVSeqOfCap[ref A](1)
 
     for i in 0 ..< 8:
       var refA: ref A = new A
@@ -123,7 +123,7 @@ suite "unsafeSeq - type-erased operations on seq internals":
     b.y = 9
     b.a = inner
 
-    var s: seq[B]
+    var s: VSeq[B]
     s.addAndZero(b)
 
     check s.len == 1
@@ -139,14 +139,14 @@ suite "unsafeSeq - type-erased operations on seq internals":
     b.y = 4
     b.a = inner
 
-    var s: seq[B]
+    var s: VSeq[B]
     s.addAndZero(b)
 
     check b.y == 0
     check b.a == nil
 
   test "addAndZero: object with ref field - growth preserves inner refs":
-    var s = newSeqOfCap[B](1)
+    var s = newVSeqOfCap[B](1)
 
     for i in 0 ..< 6:
       var inner: ref A = new A
