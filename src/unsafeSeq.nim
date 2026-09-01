@@ -253,6 +253,7 @@ template destroy[T](s: var VSeq[T]) =
       s[i].reset()
 
     s.payload.dealloc()
+    s.payload = nil
 
   s.len = 0
 
