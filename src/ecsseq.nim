@@ -135,7 +135,7 @@ proc ecsSeqMover*[T](): Mover =
 
 
 proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
-  let element = fromEcsSeq.unsafeGet(index)
+  let element = fromEcsSeq.unsafeGet(index, fromEcsSeq.stride)
   fromEcsSeq.del index
   result = toEcsSeq.add element
 
