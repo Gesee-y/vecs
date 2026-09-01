@@ -6,12 +6,20 @@ import unsafeSeq
 type EcsSeqAny* = ref object of RootObj
   deleted: seq[bool]
   free: seq[int]
-  stride: int
-  rawPtr: pointer
+  stride*: int
+  rawPtr*: pointer
 
 
 type EcsSeq*[T] = ref object of EcsSeqAny
   data: VSeq[T]
+
+
+type AddItemAny* = ref object of RootObj
+  raw*: pointer
+
+
+type AddItem*[T] = ref object of AddItemAny
+  data*: T
 
 
 type Builder* =
@@ -118,6 +126,11 @@ proc `$`*[T](self: EcsSeq[T]): string =
   result &= "]"
 
 
+proc newAddItem*[T](val: sink T): AddItem[T] =
+  result = AddItem[T](data: val)
+  result.raw = addr result.data
+
+
 proc newEcsSeq*[T](): EcsSeq[T] =
   result = EcsSeq[T](stride: sizeof(T), data: newVSeq[T]())
   result.rawPtr = addr result.data
@@ -131,10 +144,14 @@ proc ecsSeqBuilder*[T](): Builder =
   proc(): EcsSeqAny = buildEcsSeq[T]()
 
 
+proc rawGet*(self: EcsSeqAny, index: int): pointer {.inline.} =
+  self.rawPtr.unsafeGet(index, self.stride)
+
+
 proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
-  let element = fromEcsSeq.rawPtr.unsafeGet(index, fromEcsSeq.stride)
+  let element = fromEcsSeq.rawGet(index)
   fromEcsSeq.del index
-  result = toEcsSeq.add element
+  result = toEcsSeq.add cast[ptr byte](element)
 
 
 proc ecsSeqGetter*[T](): Getter =

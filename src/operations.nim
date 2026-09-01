@@ -16,6 +16,6 @@ type Operation* = object
   of RemoveEntity:
     discard
   of AddComponents:
-    componentsToAdd*: Table[ComponentId, EcsSeqAny]
+    componentsToAdd*: Table[ComponentId, AddItemAny]
   of RemoveComponents:
     compIdsToRemove*: PackedSet[ComponentId]

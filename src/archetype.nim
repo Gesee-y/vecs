@@ -115,7 +115,7 @@ proc remove*(archetype: var Archetype, archetypeEntityId: int) =
     components.del archetypeEntityId
 
 
-proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, componentsToAdd: Table[ComponentId, EcsSeqAny]): int =
+proc moveAddingTuple*[T: tuple](fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, components: T): int =
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     let toIndex = toArchetype.getIndex(compId)
@@ -124,11 +124,35 @@ proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArc
     var toEcsSeq = toArchetype.componentLists[toIndex]
     result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
 
-  for compId, compSeq in componentsToAdd.pairs:
+  for name, value in fieldPairs components:
+    let compId = (typeof value).toComponentId
     let toIndex = toArchetype.getIndex(compId)
-    var fromSeq: EcsSeqAny = compSeq
-    let index = moveEcsSeq(fromSeq, 0, toArchetype.componentLists[toIndex])
-    when CHECKS_ENABLED: assert result == index
+    var toEcsSeq = toArchetype.componentLists[toIndex]
+    var val = value
+    let index = toEcsSeq.add cast[ptr byte](addr val)
+    if fromArchetype.componentIds.len > 0:
+      when CHECKS_ENABLED: assert result == index
+    else:
+      result = index
+
+
+proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, componentsToAdd: Table[ComponentId, AddItemAny]): int =
+  for index in 0..<fromArchetype.componentIds.len:
+    let compId = fromArchetype.componentIds[index]
+    let toIndex = toArchetype.getIndex(compId)
+
+    var fromEcsSeq = fromArchetype.componentLists[index]
+    var toEcsSeq = toArchetype.componentLists[toIndex]
+    result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
+
+  for compId, item in componentsToAdd.pairs:
+    let toIndex = toArchetype.getIndex(compId)
+    var toEcsSeq = toArchetype.componentLists[toIndex]
+    let index = toEcsSeq.add cast[ptr byte](item.raw)
+    if fromArchetype.componentIds.len > 0:
+      when CHECKS_ENABLED: assert result == index
+    else:
+      result = index
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =

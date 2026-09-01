@@ -138,7 +138,7 @@ proc ensureCap[T](s: var VSeq[T], len: int) =
     s.payload = cast[ptr VSeqPayload[T]](newData)
     s.payload.cap = newCap
 
-proc newVSeqOfCap*[T](cap: int): VSeq[T] =
+proc newVSeqOfCap*[T](cap: int = 0): VSeq[T] =
   result = VSeq[T](len: 0)
   if cap > 0:
     ensureCap(result, cap)
