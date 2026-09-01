@@ -92,9 +92,13 @@ proc growPayload(seqVar: pointer; stride: int; minCap: int) =
 
   payloadPtrLoc[] = newPayload
 
-proc unsafeSet*(s: pointer, i: untyped, v: ptr byte, stride: int) =
+template unsafeSet*(s: pointer, i: untyped, v: ptr byte, stride: int) =
   var data = unsafeSeqDataPtr(s)
   copyMem(cast[pointer](cast[int](data) + i * stride), v, stride)
+
+template unsafeGet*(s: pointer, i: untyped, stride: int): ptr byte =
+  var data = unsafeSeqDataPtr(s)
+  cast[ptr byte](cast[int](data) + i * stride)
 
 
 # -----------------------------------------------------------------------------
@@ -176,8 +180,12 @@ template `[]=`*[T](s: var VSeq[T], i: untyped, v: T) =
 template `[]=`*[T](s: var VSeq[T], i: BackwardsIndex, v: T) =
   s[s.len - i.int] = v
 
-proc unsafeAddAndZero*[T](v: pointer, source: ptr byte, stride: int) =
+proc unsafeAddAndZero*(v: pointer, source: ptr byte, stride: int) =
   v.unsafeAdd(source, stride)
+  zeroMem(source, stride)
+
+proc unsafeSetAndZero*(v: pointer, i: int, source: ptr byte, stride: int) =
+  v.unsafeSet(i, source, stride)
   zeroMem(source, stride)
 
 proc add*[T](s: var VSeq[T], v: T) =

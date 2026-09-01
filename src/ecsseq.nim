@@ -1,6 +1,8 @@
 # ISC License
 # Copyright (c) 2025 RowDaBoat
 # `vecs` is a free open source ECS library for Nim.
+import unsafeSeq
+
 type EcsSeqAny* = ref object of RootObj
   deleted: seq[bool]
   free: seq[int]
@@ -113,9 +115,14 @@ proc `$`*[T](self: EcsSeq[T]): string =
 
   result &= "]"
 
+proc buildEcsSeq[T](): EcsSeqAny =
+  var data = newVSeq[T]()
+  var res = EcsSeq[T](stride: sizeof(T), data: data)
+  res.rawPtr = addr res.data
+  return res
 
 proc ecsSeqBuilder*[T](): Builder =
-  proc(): EcsSeqAny = EcsSeq[T]()
+  proc(): EcsSeqAny = buildEcsSeq[T]()
 
 
 proc ecsSeqMover*[T](): Mover =
@@ -125,6 +132,12 @@ proc ecsSeqMover*[T](): Mover =
     let element = typedFromEcsSeq[index]
     fromEcsSeq.del index
     result = typedToEcsSeq.add element
+
+
+proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
+  let element = fromEcsSeq.unsafeGet(index)
+  fromEcsSeq.del index
+  result = toEcsSeq.add element
 
 
 proc ecsSeqGetter*[T](): Getter =
