@@ -2,7 +2,7 @@
 # Copyright (c) 2025 RowDaBoat
 # `vecs` is a free open source ECS library for Nim.
 import tables, intsets
-import entityid, componentid, archetype, ecsseq
+import entityid, componentid, ecsseq
 
 type OperationKind* = enum
   RemoveEntity
@@ -16,6 +16,6 @@ type Operation* = object
   of RemoveEntity:
     discard
   of AddComponents:
-    addersById*: Table[ComponentId, Adder]
+    componentsToAdd*: Table[ComponentId, EcsSeqAny]
   of RemoveComponents:
     compIdsToRemove*: PackedSet[ComponentId]

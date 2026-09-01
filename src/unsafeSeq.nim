@@ -140,11 +140,14 @@ proc ensureCap[T](s: var VSeq[T], len: int) =
 
 proc newVSeqOfCap*[T](cap: int): VSeq[T] =
   result = VSeq[T](len: 0)
-  ensureCap(result, cap)
+  if cap > 0:
+    ensureCap(result, cap)
 
-proc newVSeq*[T](len: int): VSeq[T] =
+
+proc newVSeq*[T](len: int = 0): VSeq[T] =
   result = VSeq[T](len: len)
-  ensureCap(result, len)
+  if len > 0:
+    ensureCap(result, len)
 
 proc len*[T](s: VSeq[T]): int = s.len
 

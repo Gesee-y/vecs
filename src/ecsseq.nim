@@ -13,16 +13,9 @@ type EcsSeqAny* = ref object of RootObj
 type EcsSeq*[T] = ref object of EcsSeqAny
   data: VSeq[T]
 
+
 type Builder* =
   proc(): EcsSeqAny {.nimcall.}
-
-
-type Adder* =
-  proc(ecsSeq: var EcsSeqAny): int
-
-
-type Mover* =
-  proc(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int {.nimcall.}
 
 
 type Getter* =
@@ -39,7 +32,14 @@ iterator ids*(self: EcsSeqAny): int =
         yield index
 
 
+proc ensureInitialized[T](self: EcsSeq[T]) =
+  if self.rawPtr == nil:
+    self.stride = sizeof(T)
+    self.rawPtr = addr self.data
+
+
 proc add*[T](self: EcsSeq[T], item: sink T): int =
+  self.ensureInitialized()
   if self.free.len > 0:
     let index = self.free.pop()
     self.data[index] = item
@@ -49,6 +49,7 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
     self.data.add item
     self.deleted.add false
     result = self.data.len - 1
+
 
 proc add*(self: EcsSeqAny, item: ptr byte): int =
   if self.free.len > 0:
@@ -86,6 +87,7 @@ proc `[]=`*[T](self: var EcsSeq[T], index: int, value: T) =
 
 
 proc addAt*[T](self: var EcsSeq[T], index: int, value: T) =
+  self.ensureInitialized()
   if index >= self.data.len:
     let oldLen = self.data.len
     self.data.setLen(index + 1)
@@ -115,23 +117,18 @@ proc `$`*[T](self: EcsSeq[T]): string =
 
   result &= "]"
 
+
+proc newEcsSeq*[T](): EcsSeq[T] =
+  result = EcsSeq[T](stride: sizeof(T), data: newVSeq[T]())
+  result.rawPtr = addr result.data
+
+
 proc buildEcsSeq[T](): EcsSeqAny =
-  var data = newVSeq[T]()
-  var res = EcsSeq[T](stride: sizeof(T), data: data)
-  res.rawPtr = addr res.data
-  return res
+  newEcsSeq[T]()
+
 
 proc ecsSeqBuilder*[T](): Builder =
   proc(): EcsSeqAny = buildEcsSeq[T]()
-
-
-proc ecsSeqMover*[T](): Mover =
-  proc(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
-    var typedFromEcsSeq = cast[EcsSeq[T]](fromEcsSeq)
-    var typedToEcsSeq = cast[EcsSeq[T]](toEcsSeq)
-    let element = typedFromEcsSeq[index]
-    fromEcsSeq.del index
-    result = typedToEcsSeq.add element
 
 
 proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
@@ -143,6 +140,6 @@ proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny)
 proc ecsSeqGetter*[T](): Getter =
   proc(fromEcsSeq: EcsSeqAny, index: int): EcsSeqAny {.nimcall.} =
     let source = cast[EcsSeq[T]](fromEcsSeq)
-    let snap = EcsSeq[T]()
+    let snap = newEcsSeq[T]()
     discard snap.add source[index]
     snap
