@@ -92,6 +92,11 @@ proc growPayload(seqVar: pointer; stride: int; minCap: int) =
 
   payloadPtrLoc[] = newPayload
 
+proc unsafeSet*(s: pointer, i: untyped, v: ptr byte, stride: int) =
+  var data = unsafeSeqDataPtr(s)
+  copyMem(cast[pointer](cast[int](data) + i * stride), v, stride)
+
+
 # -----------------------------------------------------------------------------
 # Core operation
 # -----------------------------------------------------------------------------
@@ -170,6 +175,10 @@ template `[]=`*[T](s: var VSeq[T], i: untyped, v: T) =
 
 template `[]=`*[T](s: var VSeq[T], i: BackwardsIndex, v: T) =
   s[s.len - i.int] = v
+
+proc unsafeAddAndZero*[T](v: pointer, source: ptr byte, stride: int) =
+  v.unsafeAdd(source, stride)
+  zeroMem(source, stride)
 
 proc add*[T](s: var VSeq[T], v: T) =
   s.grow(s.len+1)

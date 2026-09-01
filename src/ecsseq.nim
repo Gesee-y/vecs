@@ -4,11 +4,12 @@
 type EcsSeqAny* = ref object of RootObj
   deleted: seq[bool]
   free: seq[int]
+  stride: int
+  rawPtr: pointer
 
 
 type EcsSeq*[T] = ref object of EcsSeqAny
-  data: seq[T]
-
+  data: VSeq[T]
 
 type Builder* =
   proc(): EcsSeqAny {.nimcall.}
@@ -46,6 +47,17 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
     self.data.add item
     self.deleted.add false
     result = self.data.len - 1
+
+proc add*(self: EcsSeqAny, item: ptr byte): int =
+  if self.free.len > 0:
+    let index = self.free.pop()
+    self.rawPtr.unsafeSetAndZero(index, item, self.stride)
+    self.deleted[index] = false
+    result = index
+  else:
+    self.rawPtr.unsafeAddAndZero(item, self.stride)
+    self.deleted.add false
+    result = self.rawPtr.unsafeSeqLen - 1
 
 
 proc del*(self: EcsSeqAny, index: int) =
