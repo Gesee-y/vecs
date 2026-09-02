@@ -109,5 +109,6 @@ proc ecsSeqGetter*[T](): Getter =
   proc(fromEcsSeq: EcsSeqAny, index: int): EcsSeqAny {.nimcall.} =
     let source = cast[EcsSeq[T]](fromEcsSeq)
     let snapshot = EcsSeq[T]()
+    snapshot.ensureInitialized()
     snapshot.addAt(0, source[index])
     snapshot
