@@ -6,22 +6,24 @@ import world
 
 type Id*[T] = object
   value: int = -1
+  generation: int = 0
 
 
 proc `of`*[T](id: EntityId, desc: typedesc[T]): Id[T] =
-  result = Id[T](value: id.value)
+  result = Id[T](value: id.value, generation: id.generation)
 
 
 proc `of`*[T](id: Id[auto], desc: typedesc[T]): Id[T] =
-  result = Id[T](value: id.value)
+  result = Id[T](value: id.value, generation: id.generation)
 
 
 proc `entityId`*[T](id: Id[T]): EntityId =
-  EntityId(value: id.value)
+  EntityId(value: id.value, generation: id.generation)
 
 
 proc `entityId=`*[T](id: var Id[T], entityId: EntityId) =
   id.value = entityId.value
+  id.generation = entityId.generation
 
 
 template has*[T](world: var World, id: Id[T]): bool =

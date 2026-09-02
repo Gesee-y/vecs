@@ -12,7 +12,7 @@ const CHECKS_ENABLED = not defined(danger)
 
 type World* = object
   entities: seq[Entity] = @[]
-  entityDeleted: seq[bool] = @[]
+  generations: seq[int] = @[]
   entityFree: seq[int] = @[]
   archIdToIndex: Table[ArchetypeId, int]
   archetypes: seq[Archetype]
@@ -71,25 +71,24 @@ template checkNotATuple[T](tup: typedesc[T]) =
 proc has*(world: var World, id: EntityId): bool =
   ## Check if an entity exists.
   id.value >= 0 and
-  id.value < world.entityDeleted.len and
-  not world.entityDeleted[id.value]
+  id.value < world.generations.len and
+  world.generations[id.value] == id.generation
 
 
 proc allocateEntity(world: var World, entity: Entity): EntityId =
   if world.entityFree.len > 0:
     let id = world.entityFree.pop()
-    world.entityDeleted[id] = false
     world.entities[id] = entity
-    result = EntityId(value: id)
+    result = EntityId(value: id, generation: world.generations[id])
   else:
-    let id = world.entityDeleted.len
-    world.entityDeleted.add false
+    let id = world.entities.len
+    world.generations.add 0
     world.entities.add entity
-    result = EntityId(value: id)
+    result = EntityId(value: id, generation: 0)
 
 
 proc deleteEntity(world: var World, id: EntityId) =
-  world.entityDeleted[id.value] = true
+  inc world.generations[id.value]
   world.entityFree.add id.value
 
 
@@ -97,19 +96,18 @@ proc setEntityAt(world: var World, id: EntityId, entity: Entity) =
   if id.value >= world.entities.len:
     let oldLen = world.entities.len
     world.entities.setLen(id.value + 1)
-    world.entityDeleted.setLen(id.value + 1)
+    world.generations.setLen(id.value + 1)
 
     for i in oldLen ..< id.value:
-      world.entityDeleted[i] = true
+      world.generations[i] = 1
       world.entityFree.add i
 
-  if world.entityDeleted[id.value]:
-    let freeIndex = world.entityFree.find(id.value)
-    if freeIndex >= 0:
-      world.entityFree.del(freeIndex)
+  let freeIndex = world.entityFree.find(id.value)
+  if freeIndex >= 0:
+    world.entityFree.del(freeIndex)
 
   world.entities[id.value] = entity
-  world.entityDeleted[id.value] = false
+  world.generations[id.value] = id.generation
 
 
 proc checkEntityExists(world: var World, id: EntityId) =
@@ -992,19 +990,6 @@ proc cleanupEmptyArchetypes*(world: var World) =
     inc world.version
     world.archetypes = newArchetypes
     world.archIdToIndex = newArchIdToIndex
-    if world.entityFree.len == 0:
-      for id in 0 ..< world.entityDeleted.len:
-        var entity = world.entities[id]
-        if entity.archetypeIndex < oldIndexToNewIndex.len and oldIndexToNewIndex[entity.archetypeIndex] > 0:
-          entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex] - 1
-          world.entities[id] = entity
-    else:
-      for id in 0 ..< world.entityDeleted.len:
-        if not world.entityDeleted[id]:
-          var entity = world.entities[id]
-          if entity.archetypeIndex < oldIndexToNewIndex.len and oldIndexToNewIndex[entity.archetypeIndex] > 0:
-            entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex] - 1
-            world.entities[id] = entity
 
 
 proc consolidate*(world: var World) =
