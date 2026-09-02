@@ -4,8 +4,6 @@
 import unsafeSeq
 
 type EcsSeqAny* = ref object of RootObj
-  deleted: seq[bool]
-  free: seq[int]
   stride*: int
   rawPtr*: pointer
 
@@ -30,100 +28,53 @@ type Getter* =
   proc(fromEcsSeq: EcsSeqAny, index: int): EcsSeqAny {.nimcall.}
 
 
-iterator ids*(self: EcsSeqAny): int =
-  if self.free.len == 0:
-    for index in 0..<self.deleted.len:
-      yield index
-  else:
-    for index in 0..<self.deleted.len:
-      if not self.deleted[index]:
-        yield index
-
-
 proc ensureInitialized[T](self: EcsSeq[T]) =
   if self.rawPtr == nil:
     self.stride = sizeof(T)
     self.rawPtr = addr self.data
 
 
+proc add*(self: EcsSeqAny, item: ptr byte): int =
+  self.rawPtr.unsafeAddAndZero(item, self.stride)
+  result = self.rawPtr.unsafeSeqLen - 1
+
+
 proc add*[T](self: EcsSeq[T], item: sink T): int =
   self.ensureInitialized()
-  if self.free.len > 0:
-    let index = self.free.pop()
-    self.data[index] = item
-    self.deleted[index] = false
-    result = index
-  else:
-    self.data.add item
-    self.deleted.add false
-    result = self.data.len - 1
+  self.data.add item
+  self.data.len - 1
 
 
-proc add*(self: EcsSeqAny, item: ptr byte): int =
-  if self.free.len > 0:
-    let index = self.free.pop()
-    self.rawPtr.unsafeSetAndZero(index, item, self.stride)
-    self.deleted[index] = false
-    result = index
-  else:
-    self.rawPtr.unsafeAddAndZero(item, self.stride)
-    self.deleted.add false
-    result = self.rawPtr.unsafeSeqLen - 1
+proc addAt*(self: EcsSeqAny, index: int, value: ptr byte) =
+  if index >= self.rawPtr.unsafeSeqLen:
+    self.rawPtr.growPayload(self.stride, index + 1)
+  self.rawPtr.unsafeSetAndZero(index, value, self.stride)
 
 
-proc del*(self: EcsSeqAny, index: int) =
-  self.deleted[index] = true
-  self.free.add index
+proc addAt*[T](self: EcsSeq[T], index: int, value: sink T) =
+  if index >= self.data.len:
+    self.data.setLen(index + 1)
+  self.data[index] = value
 
+
+proc len*[T](self: EcsSeq[T]): int =
+  self.data.len
+  
 
 proc len*(self: EcsSeqAny): int =
-  self.deleted.len - self.free.len
-
-
-proc has*(self: EcsSeqAny, index: int): bool =
-  index >= 0 and
-  index < self.deleted.len and
-  not self.deleted[index]
+  self.unsafeSeqLen()
 
 
 proc `[]`*[T](self: EcsSeq[T], index: int): var T =
   self.data[index]
 
 
-proc `[]=`*[T](self: var EcsSeq[T], index: int, value: T) =
+proc `[]=`*[T](self: EcsSeq[T], index: int, value: sink T) =
   self.data[index] = value
-
-
-proc addAt*[T](self: var EcsSeq[T], index: int, value: T) =
-  self.ensureInitialized()
-  if index >= self.data.len:
-    let oldLen = self.data.len
-    self.data.setLen(index + 1)
-    self.deleted.setLen(index + 1)
-
-    for i in oldLen ..< self.data.len - 1:
-      self.deleted[i] = true
-      self.free.add i
-
-  if self.deleted[index]:
-    let freeIndex = self.free.find(index)
-    if freeIndex >= 0:
-      self.free.del(freeIndex)
-
-  self.data[index] = value
-  self.deleted[index] = false
 
 
 proc `$`*[T](self: EcsSeq[T]): string =
-  result &= "@["
-
-  for i in 0..<self.data.len:
-    if not self.deleted[i]:
-      result &= $self.data[i]
-      if i < self.data.len - 1:
-        result &= ", "
-
-  result &= "]"
+  $self.data
 
 
 proc newAddItem*[T](val: sink T): AddItem[T] =
@@ -148,15 +99,14 @@ proc rawGet*(self: EcsSeqAny, index: int): pointer {.inline.} =
   self.rawPtr.unsafeGet(index, self.stride)
 
 
-proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, index: int, toEcsSeq: var EcsSeqAny): int =
-  let element = fromEcsSeq.rawGet(index)
-  fromEcsSeq.del index
-  result = toEcsSeq.add cast[ptr byte](element)
+proc moveEcsSeq*(fromEcsSeq: var EcsSeqAny, fromIndex: int, toEcsSeq: var EcsSeqAny, toIndex: int) =
+  let element = fromEcsSeq.rawGet(fromIndex)
+  toEcsSeq.addAt(toIndex, cast[ptr byte](element))
 
 
 proc ecsSeqGetter*[T](): Getter =
   proc(fromEcsSeq: EcsSeqAny, index: int): EcsSeqAny {.nimcall.} =
     let source = cast[EcsSeq[T]](fromEcsSeq)
-    let snap = newEcsSeq[T]()
-    discard snap.add source[index]
-    snap
+    let snapshot = EcsSeq[T]()
+    snapshot.addAt(0, source[index])
+    snapshot

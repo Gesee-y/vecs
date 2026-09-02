@@ -8,11 +8,14 @@ import componentid, archetypeid
 
 const CHECKS_ENABLED = not defined(danger)
 
+
 type Archetype* = ref object
   id*: ArchetypeId
   componentIds*: seq[ComponentId]
   toIndexMap*: seq[uint16]
   componentLists*: seq[EcsSeqAny]
+  deleted*: seq[bool]
+  free*: seq[int]
   builders: seq[Builder]
 
 
@@ -61,6 +64,8 @@ proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder]): Arc
     componentIds: componentIds,
     componentLists: componentLists,
     builders: builders
+    deleted: @[],
+    free: @[]
   )
 
 
@@ -84,78 +89,104 @@ proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archety
   makeArchetype(newCompIds, newBuilders)
 
 
+proc allocateSlot(archetype: Archetype): int =
+  if archetype.free.len > 0:
+    result = archetype.free.pop()
+    archetype.deleted[result] = false
+  else:
+    result = archetype.deleted.len
+    archetype.deleted.add false
+
+
 iterator entities*(archetype: Archetype): int =
-  let firstCompId = archetype.componentIds[0]
-  let index = archetype.getIndex(firstCompId)
-  let firstComponentList = archetype.componentLists[index]
-  for i in firstComponentList.ids:
-    yield i
+  if archetype.free.len == 0:
+    for index in 0..<archetype.deleted.len:
+      yield index
+  else:
+    for index in 0..<archetype.deleted.len:
+      if not archetype.deleted[index]:
+        yield index
 
 
 iterator components*[T](archetype: Archetype, componentId: ComponentId): T =
   let index = archetype.getIndex(componentId)
   let ecsSeq = archetype.componentLists[index]
-  for i in ecsSeq.ids:
-    yield cast[EcsSeq[T]](ecsSeq)[i]
+  for entityId in archetype.entities:
+    yield cast[EcsSeq[T]](ecsSeq)[entityId]
 
 
-proc addField[T](ecsSeqAny: EcsSeqAny, item: sink T): int =
-  cast[EcsSeq[T]](ecsSeqAny).add item
+proc addField[T](ecsSeqAny: EcsSeqAny, slot: int, item: sink T) =
+  cast[EcsSeq[T]](ecsSeqAny).addAt(slot, item)
 
 
 proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
+  let slot = archetype.allocateSlot()
+
   for name, field in fieldPairs components:
     let componentId = (typeof field).toComponentId
     let index = archetype.getIndex(componentId)
-    result = addField(archetype.componentLists[index], field)
+    addField(archetype.componentLists[index], slot, field)
+
+  result = slot
+
+
+proc add*(archetype: var Archetype, adders: Table[ComponentId, AddItemAny]): int =
+  let slot = archetype.allocateSlot()
+
+  for compId, adder in adders.pairs:
+    let index = archetype.getIndex(compId)
+    archetype.componentLists[index].add adder.raw
+
+  result = slot
 
 
 proc remove*(archetype: var Archetype, archetypeEntityId: int) =
-  for components in archetype.componentLists:
-    components.del archetypeEntityId
+  archetype.deleted[archetypeEntityId] = true
+  archetype.free.add archetypeEntityId
 
 
 proc moveAddingTuple*[T: tuple](fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, components: T): int =
+  let toSlot = toArchetype.allocateSlot()
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     let toIndex = toArchetype.getIndex(compId)
 
     var fromEcsSeq = fromArchetype.componentLists[index]
     var toEcsSeq = toArchetype.componentLists[toIndex]
-    result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
+    moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
 
   for name, value in fieldPairs components:
     let compId = (typeof value).toComponentId
     let toIndex = toArchetype.getIndex(compId)
     var toEcsSeq = toArchetype.componentLists[toIndex]
     var val = value
-    let index = toEcsSeq.add cast[ptr byte](addr val)
-    if fromArchetype.componentIds.len > 0:
-      when CHECKS_ENABLED: assert result == index
-    else:
-      result = index
+    toEcsSeq.addAt(toSlot, cast[ptr byte](addr val))
+      
+  toSlot
 
 
 proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, componentsToAdd: Table[ComponentId, AddItemAny]): int =
+  let toSlot = toArchetype.allocateSlot()
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     let toIndex = toArchetype.getIndex(compId)
 
     var fromEcsSeq = fromArchetype.componentLists[index]
     var toEcsSeq = toArchetype.componentLists[toIndex]
-    result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
+    moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
 
   for compId, item in componentsToAdd.pairs:
     let toIndex = toArchetype.getIndex(compId)
     var toEcsSeq = toArchetype.componentLists[toIndex]
-    let index = toEcsSeq.add cast[ptr byte](item.raw)
-    if fromArchetype.componentIds.len > 0:
-      when CHECKS_ENABLED: assert result == index
-    else:
-      result = index
+    toEcsSeq.addAt(toSlot, cast[ptr byte](item.raw))
+    
+  fromArchetype.remove(fromArchetypeEntityId)
+  result = toSlot
 
 
 proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype): int =
+  let toSlot = toArchetype.allocateSlot()
+
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
     var fromEcsSeq = fromArchetype.componentLists[index]
@@ -163,9 +194,10 @@ proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toA
     if toArchetype.id.contains compId:
       let toIndex = toArchetype.getIndex(compId)
       var toEcsSeq = toArchetype.componentLists[toIndex]
-      result = moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq)
-    else:
-      fromEcsSeq.del fromArchetypeEntityId
+      moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
+      
+  fromArchetype.remove(fromArchetypeEntityId)
+  result = toSlot
 
 
 proc contains*(archetype: Archetype, candidateId: ComponentId): bool =
@@ -180,6 +212,9 @@ proc disjointed*(archetype: Archetype, candidateId: ArchetypeId): bool =
   archetype.id.disjointed candidateId
 
 
+proc len*(archetype: Archetype): int =
+  archetype.deleted.len - archetype.free.len
+
+
 proc isEmpty*(archetype: Archetype): bool =
-  for componentList in archetype.componentLists:
-    return componentList.len == 0
+  archetype.len == 0
