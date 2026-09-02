@@ -203,11 +203,5 @@ proc len*(archetype: Archetype): int =
   archetype.deleted.len - archetype.free.len
 
 
-proc has*(archetype: Archetype, archetypeEntityId: int): bool =
-  archetypeEntityId >= 0 and
-  archetypeEntityId < archetype.deleted.len and
-  not archetype.deleted[archetypeEntityId]
-
-
 proc isEmpty*(archetype: Archetype): bool =
   archetype.len == 0
