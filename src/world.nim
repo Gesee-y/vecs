@@ -983,7 +983,7 @@ proc cleanupEmptyArchetypes*(world: var World) =
       upVersion = true
     else:
       let newIndex = newArchetypes.len
-      if newIndex >= oldIndexToNewIndex.len: oldIndexToNewIndex.setLen(newIndex + 1)
+      if oldIndex >= oldIndexToNewIndex.len: oldIndexToNewIndex.setLen(oldIndex + 1)
       newArchIdToIndex[archetype.id] = newIndex
       oldIndexToNewIndex[oldIndex] = newIndex + 1
       newArchetypes.add archetype
