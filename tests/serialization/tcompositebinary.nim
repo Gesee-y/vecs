@@ -2,6 +2,7 @@
 # Copyright (c) 2025 RowDaBoat
 # `vecs` is a free open source ECS library for Nim.
 import unittest
+import std/strutils
 import ../../src/[vecs, id]
 
 
@@ -53,6 +54,32 @@ type
 
   Trunk = object
     branch: Branch
+
+
+  ValueSetter = proc(value: float32)
+
+
+  Material = object
+    path: string
+    texture {.transient.}: int
+
+
+  Model = object
+    name: string
+    material: Material
+
+
+  Channel = object
+    target: string
+    setter {.transient.}: ValueSetter
+
+
+  Timeline = object
+    channels: seq[Channel]
+
+
+proc noValueSetter(value: float32) =
+  discard
 
 
 suite "Binary (CBOR) serialization of complex fields should":
@@ -144,3 +171,49 @@ suite "Binary (CBOR) serialization of complex fields should":
     var restored = deserializeFromBinary(data, (Trunk,))
 
     check restored.read(entityId, Trunk) == trunk
+
+
+  test "skip a transient field nested in an object field":
+    var world = World()
+    let model = Model(name: "hero", material: Material(path: "hero.png", texture: 42))
+    let entityId = world.add((model,), Immediate)
+
+    let data = world.serializeToBinary((Model,))
+
+    checkpoint("A transient field one level down should not appear in the serialized output.")
+    check data.find("texture") == -1
+
+    var restored = deserializeFromBinary(data, (Model,))
+    let material = restored.read(entityId, Model).material
+
+    checkpoint("Its non-transient sibling should survive the round-trip.")
+    check material.path == "hero.png"
+
+    checkpoint("A nested transient field should read back at its default value.")
+    check material.texture == 0
+
+
+  test "skip a transient field of an unserializable type nested in a seq of objects":
+    var world = World()
+    let timeline = Timeline(channels: @[
+      Channel(target: "Transform.position.x", setter: noValueSetter),
+      Channel(target: "Transform.position.y", setter: noValueSetter)
+    ])
+    let entityId = world.add((timeline,), Immediate)
+
+    let data = world.serializeToBinary((Timeline,))
+
+    checkpoint("A transient field of a seq element should not appear in the serialized output.")
+    check data.find("setter") == -1
+
+    var restored = deserializeFromBinary(data, (Timeline,))
+    let channels = restored.read(entityId, Timeline).channels
+
+    checkpoint("Every element should survive the round-trip with its non-transient fields.")
+    check channels.len == 2
+    check channels[0].target == "Transform.position.x"
+    check channels[1].target == "Transform.position.y"
+
+    checkpoint("A transient field inside a seq element should read back at its default value.")
+    check channels[0].setter.isNil
+    check channels[1].setter.isNil

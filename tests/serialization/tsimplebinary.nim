@@ -18,6 +18,19 @@ type
     texture {.transient.}: int
 
 
+type
+  ValueSetter = proc(value: float32)
+
+
+  Binding = object
+    field: string
+    setter {.transient.}: ValueSetter
+
+
+proc noValueSetter(value: float32) =
+  discard
+
+
 suite "Binary (CBOR) serialization should":
   setup:
     var world = World()
@@ -99,3 +112,20 @@ suite "Binary (CBOR) serialization should":
 
     checkpoint("A transient field should read back at its default value.")
     check restored.read(spriteId, Sprite).texture == 0
+
+
+  test "skip a transient field of an unserializable type":
+    let bindingId = world.add((Binding(field: "position.x", setter: noValueSetter),), Immediate)
+
+    let data = world.serializeToBinary((Binding,))
+
+    checkpoint("The transient field name should not appear in the serialized output.")
+    check data.find("setter") == -1
+
+    var restored = deserializeFromBinary(data, (Binding,))
+
+    checkpoint("A non-transient field should survive the round-trip.")
+    check restored.read(bindingId, Binding).field == "position.x"
+
+    checkpoint("A transient field should read back at its default value.")
+    check restored.read(bindingId, Binding).setter.isNil
