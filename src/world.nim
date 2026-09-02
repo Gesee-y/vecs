@@ -614,12 +614,13 @@ proc add*[T: tuple](world: var World, id: EntityId, components: T, mode: Operati
 
   var entity = world.entities[id.value]
   let entityArchetype = world.archetypes[entity.archetypeIndex]
+  
+  when CHECKS_ENABLED:
+    for name, value in fieldPairs components:
+      let componentId = world.componentIdFrom typeof value
 
-  for name, value in fieldPairs components:
-    let componentId = world.componentIdFrom typeof value
-
-    if entityArchetype.id.contains(componentId):
-      raise newException(ValueError, "Component " & $(typeof value) & " already exists in Entity " & $id)
+      if entityArchetype.id.contains(componentId):
+        raise newException(ValueError, "Component " & $(typeof value) & " already exists in Entity " & $id)
 
   if mode.kind == ImmediateMode:
     var previousArchetype = world.archetypes[entity.archetypeIndex]
