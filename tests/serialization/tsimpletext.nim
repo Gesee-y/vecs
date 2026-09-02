@@ -18,6 +18,19 @@ type
     texture {.transient.}: int
 
 
+type
+  ValueSetter = proc(value: float32)
+
+
+  Binding = object
+    field: string
+    setter {.transient.}: ValueSetter
+
+
+proc noValueSetter(value: float32) =
+  discard
+
+
 suite "Text (JSON) serialization should":
   setup:
     var world = World()
@@ -96,3 +109,20 @@ suite "Text (JSON) serialization should":
 
     checkpoint("A transient field should read back at its default value.")
     check restored.read(spriteId, Sprite).texture == 0
+
+
+  test "skip a transient field of an unserializable type":
+    let bindingId = world.add((Binding(field: "position.x", setter: noValueSetter),), Immediate)
+
+    let text = world.serializeToText((Binding,))
+
+    checkpoint("The transient field should not appear in the serialized text.")
+    check not text.contains("setter")
+
+    var restored = deserializeFromText(text, (Binding,))
+
+    checkpoint("A non-transient field should survive the round-trip.")
+    check restored.read(bindingId, Binding).field == "position.x"
+
+    checkpoint("A transient field should read back at its default value.")
+    check restored.read(bindingId, Binding).setter.isNil
