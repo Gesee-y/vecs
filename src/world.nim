@@ -622,14 +622,14 @@ proc add*[T: tuple](world: var World, id: EntityId, components: T, mode: Operati
       raise newException(ValueError, "Component " & $(typeof value) & " already exists in Entity " & $id)
 
   if mode.kind == ImmediateMode:
-    var previousArchetype = world.archetypes[entity.archetypeId]
+    var previousArchetype = world.archetypes[entity.archetypeIndex]
     var componentIdsToAdd: seq[ComponentId] = @[]
     for name, value in fieldPairs components:
       componentIdsToAdd.add world.componentIdFrom typeof value
 
     var nextArchetype = world.nextArchetypeAddingFrom(previousArchetype, componentIdsToAdd)
-    entity.archetypeId = nextArchetype.id
-    entity.archetypeEntityId = previousArchetype.moveAddingTuple(entity.archetypeEntityId, nextArchetype, components)
+    entity.archetypeIndex = nextArchetype
+    entity.archetypeEntityId = previousArchetype.moveAddingTuple(entity.archetypeEntityId, world.archetypes[nextArchetype], components)
     world.entities[id.value] = entity
   else:
     var componentsToAdd = initTable[ComponentId, AddItemAny]()

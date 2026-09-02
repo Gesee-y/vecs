@@ -70,7 +70,7 @@ proc unsafeSeqDataPtr*(seqVar: pointer): pointer {.inline.} =
 proc nextCap(current: int): int {.inline.} =
   if current == 0: 4 else: current * 2
 
-proc growPayload(seqVar: pointer; stride: int; minCap: int) =
+proc growPayload*(seqVar: pointer; stride: int; minCap: int) =
   let payloadPtrLoc = seqPayloadPtr(seqVar)
   let oldPayload    = payloadPtrLoc[]
   let oldCap        = if oldPayload == nil: 0 else: payloadCapPtr(oldPayload)[]

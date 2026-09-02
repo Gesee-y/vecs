@@ -63,7 +63,7 @@ proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder]): Arc
     toIndexMap: toIndexMap,
     componentIds: componentIds,
     componentLists: componentLists,
-    builders: builders
+    builders: builders,
     deleted: @[],
     free: @[]
   )
@@ -135,7 +135,7 @@ proc add*(archetype: var Archetype, adders: Table[ComponentId, AddItemAny]): int
 
   for compId, adder in adders.pairs:
     let index = archetype.getIndex(compId)
-    archetype.componentLists[index].add adder.raw
+    archetype.componentLists[index].addAt(slot, cast[ptr byte](adder.raw))
 
   result = slot
 

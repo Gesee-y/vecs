@@ -62,7 +62,7 @@ proc len*[T](self: EcsSeq[T]): int =
   
 
 proc len*(self: EcsSeqAny): int =
-  self.unsafeSeqLen()
+  self.rawPtr.unsafeSeqLen()
 
 
 proc `[]`*[T](self: EcsSeq[T], index: int): var T =
