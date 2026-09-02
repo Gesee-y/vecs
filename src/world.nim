@@ -976,15 +976,16 @@ proc cleanupEmptyArchetypes*(world: var World) =
   var upVersion = false
   var newArchetypes: seq[Archetype] = @[]
   var newArchIdToIndex: Table[ArchetypeId, int]
-  var oldIndexToNewIndex: Table[int, int]
+  var oldIndexToNewIndex: seq[int]
 
   for oldIndex, archetype in world.archetypes:
     if archetype.isEmpty:
       upVersion = true
     else:
       let newIndex = newArchetypes.len
+      if newIndex >= oldIndexToNewIndex.len: oldIndexToNewIndex.setLen(newIndex + 1)
       newArchIdToIndex[archetype.id] = newIndex
-      oldIndexToNewIndex[oldIndex] = newIndex
+      oldIndexToNewIndex[oldIndex] = newIndex + 1
       newArchetypes.add archetype
 
   if upVersion:
@@ -994,15 +995,15 @@ proc cleanupEmptyArchetypes*(world: var World) =
     if world.entityFree.len == 0:
       for id in 0 ..< world.entityDeleted.len:
         var entity = world.entities[id]
-        if oldIndexToNewIndex.hasKey(entity.archetypeIndex):
-          entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex]
+        if entity.archetypeIndex < oldIndexToNewIndex.len and oldIndexToNewIndex[entity.archetypeIndex] > 0:
+          entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex] - 1
           world.entities[id] = entity
     else:
       for id in 0 ..< world.entityDeleted.len:
         if not world.entityDeleted[id]:
           var entity = world.entities[id]
-          if oldIndexToNewIndex.hasKey(entity.archetypeIndex):
-            entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex]
+          if entity.archetypeIndex < oldIndexToNewIndex.len and oldIndexToNewIndex[entity.archetypeIndex] > 0:
+            entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex] - 1
             world.entities[id] = entity
 
 
