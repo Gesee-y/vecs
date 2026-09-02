@@ -48,6 +48,7 @@ proc add*[T](self: EcsSeq[T], item: sink T): int =
 proc addAt*(self: EcsSeqAny, index: int, value: ptr byte) =
   if index >= self.rawPtr.unsafeSeqLen:
     self.rawPtr.growPayload(self.stride, index + 1)
+    self.rawPtr.seqLenPtr[] += 1
   self.rawPtr.unsafeSetAndZero(index, value, self.stride)
 
 

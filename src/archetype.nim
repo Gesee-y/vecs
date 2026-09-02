@@ -162,6 +162,7 @@ proc moveAddingTuple*[T: tuple](fromArchetype: var Archetype, fromArchetypeEntit
     var val = value
     toEcsSeq.addAt(toSlot, cast[ptr byte](addr val))
       
+  fromArchetype.remove(fromArchetypeEntityId)
   toSlot
 
 

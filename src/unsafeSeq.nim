@@ -30,7 +30,7 @@ type
 
 const CHECKS_ENABLED = not defined(danger)
 
-proc seqLenPtr(seqVar: pointer): ptr int {.inline.} =
+proc seqLenPtr*(seqVar: pointer): ptr int {.inline.} =
   cast[ptr int](seqVar)
 
 proc seqPayloadPtr(seqVar: pointer): ptr pointer {.inline.} =
