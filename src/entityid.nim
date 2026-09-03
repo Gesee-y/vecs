@@ -3,3 +3,4 @@
 # `vecs` is a free open source ECS library for Nim.
 type EntityId* = object
   value*: int = -1
+  generation*: int = -1

@@ -125,7 +125,8 @@ proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
   for name, field in fieldPairs components:
     let componentId = (typeof field).toComponentId
     let index = archetype.getIndex(componentId)
-    addField(archetype.componentLists[index], slot, field)
+    let val = field
+    addField(archetype.componentLists[index], slot, val)
 
   result = slot
 

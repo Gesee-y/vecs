@@ -182,7 +182,11 @@ proc shrink*[T](s: var VSeq[T], newLen: int) =
 proc grow*[T](s: var VSeq[T], newLen: int) = 
   assert newLen >= s.len, "Can't grow to lesser than the sequence length"
   ensureCap(s, newLen)
+  let oldLen = s.len
   s.len = newLen
+
+  for i in oldLen..<newLen:
+    s[i] = default(T)
 
 proc setLen*[T](s: var VSeq[T], newLen: int) =
   if s.len < newLen:
