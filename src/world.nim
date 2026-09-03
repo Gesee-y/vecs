@@ -15,6 +15,7 @@ type World* = object
   generations: seq[int] = @[]
   entityFree: seq[int] = @[]
   archIdToIndex: Table[ArchetypeId, int]
+  freeArchetype: seq[int]
   archetypes: seq[Archetype]
   builders: seq[Builder]
   getters: seq[Getter]
@@ -123,8 +124,14 @@ proc checkEntityDoesNotExist(world: var World, id: EntityId) =
 
 # Archetype creation and book-keeping
 proc registerArchetype(world: var World, archetypeId: ArchetypeId, archetype: Archetype) =
-  world.archIdToIndex[archetypeId] = world.archetypes.len
-  world.archetypes.add archetype
+  if world.freeArchetype.len > 0:
+    let archId = world.freeArchetype.pop
+  
+    world.archIdToIndex[archetypeId] = archId
+    world.archetypes[archId] = archetype
+  else:
+    world.archIdToIndex[archetypeId] = world.archetypes.len
+    world.archetypes.add archetype
 
 
 proc nextArchetypeAddingFrom(world: var World, previousArchetype: Archetype, componentIdsToAdd: seq[ComponentId]): int =
@@ -975,24 +982,16 @@ proc cleanupEmptyArchetypes*(world: var World) =
   ## This is useful mostly for deserialization routines.
   ## Removing archetypes forces caches from queries to be rebuilt.
   var upVersion = false
-  var newArchetypes: seq[Archetype] = @[]
-  var newArchIdToIndex: Table[ArchetypeId, int]
-  var oldIndexToNewIndex: seq[int]
 
-  for oldIndex, archetype in world.archetypes:
-    if archetype.isEmpty:
+  for i in 0..<world.archetypes.len:
+    if world.archetypes[i].isEmpty:
+      world.archIdToIndex.del(world.archetypes[i].id)
+      world.archetypes[i] = nil
+      world.freeArchetype.add(i)
       upVersion = true
-    else:
-      let newIndex = newArchetypes.len
-      if oldIndex >= oldIndexToNewIndex.len: oldIndexToNewIndex.setLen(oldIndex + 1)
-      newArchIdToIndex[archetype.id] = newIndex
-      oldIndexToNewIndex[oldIndex] = newIndex + 1
-      newArchetypes.add archetype
 
   if upVersion:
     inc world.version
-    world.archetypes = newArchetypes
-    world.archIdToIndex = newArchIdToIndex
 
 
 proc consolidate*(world: var World) =
