@@ -4,7 +4,7 @@
 import std/[packedsets, hashes, macros, intsets, options]
 import typetraits, tables, sets
 import entityid, componentid, archetypeid, archetype, entity, ecsseq, queries, components, operations, operationmodes, events
-export entityid.EntityId, components.Meta, operationmodes
+export entityid, components.Meta, operationmodes
 export components
 export events
 
@@ -79,12 +79,12 @@ proc allocateEntity(world: var World, entity: Entity): EntityId =
   if world.entityFree.len > 0:
     let id = world.entityFree.pop()
     world.entities[id] = entity
-    result = EntityId(value: id, generation: world.generations[id])
+    result = newEntityId(world.generations[id], id)
   else:
     let id = world.entities.len
     world.generations.add 0
     world.entities.add entity
-    result = EntityId(value: id, generation: 0)
+    result = newEntityId(0, id)
 
 
 proc deleteEntity(world: var World, id: EntityId) =

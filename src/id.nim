@@ -5,25 +5,36 @@ import world
 
 
 type Id*[T] = object
-  value: int = -1
-  generation: int = 0
+  val: uint64
 
+proc value*[T](e: Id[T]): int = int(e.val and ENTITY_ID_MASK) 
+proc generation*[T](e: Id[T]): int = int((e.val and ENTITY_GEN_MASK) shr ENTITY_ID_POS)
+
+template makeVal(gen, val: untyped): uint64 =
+  (uint64(gen) shl ENTITY_ID_POS) or uint64(val) 
+
+proc `value=`*[T](e: var Id[T], val: int) =
+  e.val = makeVal(e.generation, val) 
+
+proc `generation=`*[T](e: var Id[T], gen: int) =
+  e.val = makeVal(gen, e.value)
+
+proc newId*[T](gen, val: int): Id[T] =
+  Id[T](val: makeVal(gen, val))
 
 proc `of`*[T](id: EntityId, desc: typedesc[T]): Id[T] =
-  result = Id[T](value: id.value, generation: id.generation)
-
+  result = Id[T](val: id.val)
 
 proc `of`*[T](id: Id[auto], desc: typedesc[T]): Id[T] =
-  result = Id[T](value: id.value, generation: id.generation)
+  result = Id[T](val: id.val)
 
 
 proc `entityId`*[T](id: Id[T]): EntityId =
-  EntityId(value: id.value, generation: id.generation)
+  EntityId(val: id.val)
 
 
 proc `entityId=`*[T](id: var Id[T], entityId: EntityId) =
-  id.value = entityId.value
-  id.generation = entityId.generation
+  id.val = entityId.val
 
 
 template has*[T](world: var World, id: Id[T]): bool =

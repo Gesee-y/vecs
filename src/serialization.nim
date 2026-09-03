@@ -44,7 +44,7 @@ proc createJsonObject(entities: Table[EntityId, seq[JsonNode]]): JsonNode =
 iterator iteratetJsonComponents(json: JsonNode, world: var World): (EntityId, JsonNode, string) =
   for entity in json["entities"]:
     let intId = entity["id"].getInt
-    let id = EntityId(value: intId)
+    let id = EntityId(val: intId.uint64)
     let components = entity["components"]
     world.addWithSpecificId id
 
@@ -316,13 +316,13 @@ proc unpackFields[T](stream: CborStream, value: var T) =
 
 proc unpackValue[T](stream: CborStream, value: var T) =
   when T is Id:
-    var raw: int
+    var raw: uint64
     stream.cborUnpack(raw)
-    value.entityId = EntityId(value: raw)
+    value.entityId = EntityId(val: raw)
   elif T is EntityId:
-    var raw: int
+    var raw: uint64
     stream.cborUnpack(raw)
-    value = EntityId(value: raw)
+    value = EntityId(val: raw)
   elif T is string or T is seq[uint8]:
     stream.cborUnpack(value)
   elif T is seq:
@@ -457,9 +457,9 @@ proc readBinaryEntities[T: tuple](world: var World, stream: CborStream, tup: typ
 
     var idKey: string
     stream.cborUnpack(idKey)
-    var idValue: int
+    var idValue: uint64
     stream.cborUnpack(idValue)
-    let id = EntityId(value: idValue)
+    let id = EntityId(val: idValue.uint64)
     world.addWithSpecificId id
 
     var componentsKey: string

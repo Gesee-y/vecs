@@ -35,7 +35,7 @@ type
 type Migrated = (Tag, Link, Group, Frame, Slots, Owner)
 
 
-const missingId = EntityId(value: 123)
+const missingId = EntityId(val: 123)
 
 
 suite "Adding a whole world should":
