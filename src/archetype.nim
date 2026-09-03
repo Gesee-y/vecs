@@ -17,7 +17,6 @@ type Archetype* = ref object
   deleted*: seq[bool]
   free*: seq[int]
   builders: seq[Builder]
-  movers: seq[Mover]
 
 
 proc hasKey*(archetype: Archetype, comp: ComponentId): bool =
@@ -46,7 +45,7 @@ macro fieldTypes*(tup: typed, body: untyped): untyped =
   result = nnkBlockStmt.newTree(newEmptyNode(), result)
 
 
-proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder], movers: seq[Mover]): Archetype =
+proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder]): Archetype =
   let archetypeId = archetypeIdFrom componentIds
   var toIndexMap: seq[uint16]
   var componentLists: seq[EcsSeqAny]
@@ -67,21 +66,18 @@ proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder], move
     deleted: @[],
     free: @[],
     builders: builders,
-    movers: movers
   )
 
 
-proc makeNextAdding*(archetype: Archetype, compIds: seq[ComponentId], builders: seq[Builder], movers: seq[Mover]): Archetype =
+proc makeNextAdding*(archetype: Archetype, compIds: seq[ComponentId], builders: seq[Builder]): Archetype =
   let newCompIds = archetype.componentIds & compIds
   let newBuilders = archetype.builders & builders
-  let newMovers = archetype.movers & movers
-  makeArchetype(newCompIds, newBuilders, newMovers)
+  makeArchetype(newCompIds, newBuilders)
 
 
 proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archetype =
   var newCompIds: seq[ComponentId] = @[]
   var newBuilders: seq[Builder] = @[]
-  var newMovers: seq[Mover] = @[]
   let toRemove = compIds.toHashSet
 
   for index in 0..<archetype.componentIds.len:
@@ -89,9 +85,8 @@ proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archety
     if not toRemove.contains(compId):
       newCompIds.add compId
       newBuilders.add archetype.builders[index]
-      newMovers.add archetype.movers[index]
 
-  makeArchetype(newCompIds, newBuilders, newMovers)
+  makeArchetype(newCompIds, newBuilders)
 
 
 proc allocateSlot(archetype: Archetype): int =
@@ -135,12 +130,12 @@ proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
   result = slot
 
 
-proc add*(archetype: var Archetype, adders: Table[ComponentId, Adder]): int =
+proc add*(archetype: var Archetype, adders: Table[ComponentId, AddItemAny]): int =
   let slot = archetype.allocateSlot()
 
   for compId, adder in adders.pairs:
     let index = archetype.getIndex(compId)
-    adder(archetype.componentLists[index], slot)
+    archetype.componentLists[index].addAt(slot, cast[ptr byte](adder.raw))
 
   result = slot
 
@@ -150,22 +145,42 @@ proc remove*(archetype: var Archetype, archetypeEntityId: int) =
   archetype.free.add archetypeEntityId
 
 
-proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, adders: Table[ComponentId, Adder]): int =
+proc moveAddingTuple*[T: tuple](fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, components: T): int =
   let toSlot = toArchetype.allocateSlot()
-
   for index in 0..<fromArchetype.componentIds.len:
     let compId = fromArchetype.componentIds[index]
-    let mover = fromArchetype.movers[index]
     let toIndex = toArchetype.getIndex(compId)
 
     var fromEcsSeq = fromArchetype.componentLists[index]
     var toEcsSeq = toArchetype.componentLists[toIndex]
-    mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
+    moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
 
-  for compId, adder in adders:
+  for name, value in fieldPairs components:
+    let compId = (typeof value).toComponentId
     let toIndex = toArchetype.getIndex(compId)
-    adder(toArchetype.componentLists[toIndex], toSlot)
+    var toEcsSeq = toArchetype.componentLists[toIndex]
+    var val = value
+    toEcsSeq.addAt(toSlot, cast[ptr byte](addr val))
+      
+  fromArchetype.remove(fromArchetypeEntityId)
+  toSlot
 
+
+proc moveAdding*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toArchetype: var Archetype, componentsToAdd: Table[ComponentId, AddItemAny]): int =
+  let toSlot = toArchetype.allocateSlot()
+  for index in 0..<fromArchetype.componentIds.len:
+    let compId = fromArchetype.componentIds[index]
+    let toIndex = toArchetype.getIndex(compId)
+
+    var fromEcsSeq = fromArchetype.componentLists[index]
+    var toEcsSeq = toArchetype.componentLists[toIndex]
+    moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
+
+  for compId, item in componentsToAdd.pairs:
+    let toIndex = toArchetype.getIndex(compId)
+    var toEcsSeq = toArchetype.componentLists[toIndex]
+    toEcsSeq.addAt(toSlot, cast[ptr byte](item.raw))
+    
   fromArchetype.remove(fromArchetypeEntityId)
   result = toSlot
 
@@ -177,12 +192,11 @@ proc moveRemoving*(fromArchetype: var Archetype, fromArchetypeEntityId: int, toA
     let compId = fromArchetype.componentIds[index]
     var fromEcsSeq = fromArchetype.componentLists[index]
 
-    if toArchetype.id.contains(compId):
-      let mover = fromArchetype.movers[index]
+    if toArchetype.id.contains compId:
       let toIndex = toArchetype.getIndex(compId)
       var toEcsSeq = toArchetype.componentLists[toIndex]
-      mover(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
-
+      moveEcsSeq(fromEcsSeq, fromArchetypeEntityId, toEcsSeq, toSlot)
+      
   fromArchetype.remove(fromArchetypeEntityId)
   result = toSlot
 

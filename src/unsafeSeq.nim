@@ -30,7 +30,7 @@ type
 
 const CHECKS_ENABLED = not defined(danger)
 
-proc seqLenPtr(seqVar: pointer): ptr int {.inline.} =
+proc seqLenPtr*(seqVar: pointer): ptr int {.inline.} =
   cast[ptr int](seqVar)
 
 proc seqPayloadPtr(seqVar: pointer): ptr pointer {.inline.} =
@@ -70,7 +70,7 @@ proc unsafeSeqDataPtr*(seqVar: pointer): pointer {.inline.} =
 proc nextCap(current: int): int {.inline.} =
   if current == 0: 4 else: current * 2
 
-proc growPayload(seqVar: pointer; stride: int; minCap: int) =
+proc growPayload*(seqVar: pointer; stride: int; minCap: int) =
   let payloadPtrLoc = seqPayloadPtr(seqVar)
   let oldPayload    = payloadPtrLoc[]
   let oldCap        = if oldPayload == nil: 0 else: payloadCapPtr(oldPayload)[]
@@ -91,6 +91,15 @@ proc growPayload(seqVar: pointer; stride: int; minCap: int) =
     dealloc(oldPayload)
 
   payloadPtrLoc[] = newPayload
+
+template unsafeSet*(s: pointer, i: untyped, v: ptr byte, stride: int) =
+  var data = unsafeSeqDataPtr(s)
+  copyMem(cast[pointer](cast[int](data) + i * stride), v, stride)
+
+template unsafeGet*(s: pointer, i: untyped, stride: int): ptr byte =
+  var data = unsafeSeqDataPtr(s)
+  cast[ptr byte](cast[int](data) + i * stride)
+
 
 # -----------------------------------------------------------------------------
 # Core operation
@@ -129,15 +138,39 @@ proc ensureCap[T](s: var VSeq[T], len: int) =
     s.payload = cast[ptr VSeqPayload[T]](newData)
     s.payload.cap = newCap
 
-proc newVSeqOfCap*[T](cap: int): VSeq[T] =
+proc newVSeqOfCap*[T](cap: int = 0): VSeq[T] =
   result = VSeq[T](len: 0)
-  ensureCap(result, cap)
+  if cap > 0:
+    ensureCap(result, cap)
 
-proc newVSeq*[T](len: int): VSeq[T] =
+
+proc newVSeq*[T](len: int = 0): VSeq[T] =
   result = VSeq[T](len: len)
-  ensureCap(result, len)
+  if len > 0:
+    ensureCap(result, len)
 
-proc len*[T](s: VSeq[T]) = s.len
+proc len*[T](s: VSeq[T]): int = s.len
+
+proc `[]`*[T](s: VSeq[T], i: int): lent T {.inline.} =
+  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
+  s.payload.data[i]
+
+proc `[]`*[T](s: var VSeq[T], i: int): var T {.inline.} =
+  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
+  s.payload.data[i]
+
+proc `[]`*[T](s: VSeq[T], i: BackwardsIndex): lent T {.inline.} =
+  s[s.len - i.int]
+
+proc `[]`*[T](s: var VSeq[T], i: BackwardsIndex): var T {.inline.} =
+  s[s.len - i.int]
+
+proc `[]=`*[T](s: var VSeq[T], i: int, v: sink T) {.inline.} =
+  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
+  s.payload.data[i] = v
+
+proc `[]=`*[T](s: var VSeq[T], i: BackwardsIndex, v: sink T) {.inline.} =
+  s[s.len - i.int] = v
 
 proc shrink*[T](s: var VSeq[T], newLen: int) =
   assert newLen <= s.len, "Can't shrink to greater than the sequences length"
@@ -157,19 +190,13 @@ proc setLen*[T](s: var VSeq[T], newLen: int) =
   else:
     shrink(s, newLen)
 
-template `[]`*[T](s: VSeq[T], i: untyped): T =
-  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
-  s.payload.data[i]
+proc unsafeAddAndZero*(v: pointer, source: ptr byte, stride: int) =
+  v.unsafeAdd(source, stride)
+  zeroMem(source, stride)
 
-template `[]`*[T](s: VSeq[T], i: BackwardsIndex): T =
-  s[s.len - i.int]
-
-template `[]=`*[T](s: var VSeq[T], i: untyped, v: T) =
-  when CHECKS_ENABLED: assert i >= 0 and i < s.len, "Access out of bound"
-  s.payload.data[i] = v
-
-template `[]=`*[T](s: var VSeq[T], i: BackwardsIndex, v: T) =
-  s[s.len - i.int] = v
+proc unsafeSetAndZero*(v: pointer, i: int, source: ptr byte, stride: int) =
+  v.unsafeSet(i, source, stride)
+  zeroMem(source, stride)
 
 proc add*[T](s: var VSeq[T], v: T) =
   s.grow(s.len+1)
