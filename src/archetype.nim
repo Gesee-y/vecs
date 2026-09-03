@@ -119,14 +119,13 @@ proc addField[T](ecsSeqAny: EcsSeqAny, slot: int, item: sink T) =
   cast[EcsSeq[T]](ecsSeqAny).addAt(slot, item)
 
 
-proc add*[T: tuple](archetype: var Archetype, components: sink T): int =
+proc add*[T: tuple](archetype: var Archetype, components: T): int =
   let slot = archetype.allocateSlot()
 
   for name, field in fieldPairs components:
     let componentId = (typeof field).toComponentId
     let index = archetype.getIndex(componentId)
-    let val = field
-    addField(archetype.componentLists[index], slot, val)
+    addField(archetype.componentLists[index], slot, field)
 
   result = slot
 
