@@ -66,8 +66,6 @@ proc makeArchetype*(componentIds: seq[ComponentId], builders: seq[Builder]): Arc
     deleted: @[],
     free: @[],
     builders: builders,
-    deleted: @[],
-    free: @[]
   )
 
 
@@ -89,15 +87,6 @@ proc makeNextRemoving*(archetype: Archetype, compIds: seq[ComponentId]): Archety
       newBuilders.add archetype.builders[index]
 
   makeArchetype(newCompIds, newBuilders)
-
-
-proc allocateSlot(archetype: Archetype): int =
-  if archetype.free.len > 0:
-    result = archetype.free.pop()
-    archetype.deleted[result] = false
-  else:
-    result = archetype.deleted.len
-    archetype.deleted.add false
 
 
 proc allocateSlot(archetype: Archetype): int =
