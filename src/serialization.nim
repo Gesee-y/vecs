@@ -55,16 +55,81 @@ iterator iteratetJsonComponents(json: JsonNode, world: var World): (EntityId, Js
       yield (id, jsonComponent, componentType)
 
 
-proc deleteTransientFields[T](jsonComponent: JsonNode, component: T) =
-  for name, value in fieldPairs(component):
-    when value.hasCustomPragma(transient):
-      jsonComponent.delete(name)
+const jsonReadOptions = Joptions(allowMissingKeys: true)
+
+
+proc toJsonValue[T](value: T): JsonNode
+
+
+proc toJsonFields[T](value: T): JsonNode =
+  result = newJObject()
+
+  for name, field in fieldPairs(value):
+    when not field.hasCustomPragma(transient):
+      result[name] = toJsonValue(field)
+
+
+proc toJsonItems[T](items: T): JsonNode =
+  result = newJArray()
+
+  for item in items:
+    result.add toJsonValue(item)
+
+
+proc toJsonValue[T](value: T): JsonNode =
+  when compiles(toJsonHook(value)):
+    toJson(value)
+  elif T is EntityId or T is string:
+    toJson(value)
+  elif T is seq or T is array:
+    toJsonItems(value)
+  elif T is object or T is tuple:
+    toJsonFields(value)
+  else:
+    toJson(value)
+
+
+proc fromJsonValue[T](value: var T, json: JsonNode)
+
+
+proc fromJsonFields[T](value: var T, json: JsonNode) =
+  for name, field in fieldPairs(value):
+    when not field.hasCustomPragma(transient):
+      if json.hasKey(name):
+        fromJsonValue(field, json[name])
+
+
+proc fromJsonItems[T](items: var T, json: JsonNode) =
+  var index = 0
+
+  for item in items.mitems:
+    if index < json.len:
+      fromJsonValue(item, json[index])
+
+    inc index
+
+
+proc fromJsonValue[T](value: var T, json: JsonNode) =
+  when compiles(fromJsonHook(value, json)):
+    fromJson(value, json, jsonReadOptions)
+  elif T is EntityId or T is string:
+    fromJson(value, json, jsonReadOptions)
+  elif T is seq:
+    value.setLen(json.len)
+    fromJsonItems(value, json)
+  elif T is array:
+    fromJsonItems(value, json)
+  elif T is object or T is tuple:
+    fromJsonFields(value, json)
+  else:
+    fromJson(value, json, jsonReadOptions)
 
 
 proc addFromJson[T: tuple](world: var World, id: EntityId, jsonComponent: JsonNode, componentType: string, tup: typedesc[T]) =
   for name, value in fieldPairs default T:
     if $(typeof value) == componentType:
-      let componentToAdd = jsonComponent.jsonTo(typeof value, Joptions(allowMissingKeys: true))
+      var componentToAdd: typeof value
+      fromJsonValue(componentToAdd, jsonComponent)
       world.add(id, componentToAdd, Immediate)
 
 
@@ -76,8 +141,7 @@ proc createEntityTable*[T: tuple](world: var World, tup: typedesc[T]): Table[Ent
       if not result.hasKey(meta.id):
         result[meta.id] = @[]
 
-      var jsonComponent = toJson(component)
-      deleteTransientFields(jsonComponent, component)
+      var jsonComponent = toJsonFields(component)
       jsonComponent["*component"] = newJString($typeof value)
       result[meta.id].add jsonComponent
 
@@ -162,6 +226,22 @@ proc deserializeFromText*[T: tuple](text: string, tup: typedesc[T]): World =
   result.cleanupEmptyArchetypes()
 
 
+proc packValue[T](stream: CborStream, value: T)
+
+
+proc serializedFieldCount[T](value: T): int =
+  for _, field in fieldPairs(value):
+    when not field.hasCustomPragma(transient):
+      inc result
+
+
+proc packFields[T](stream: CborStream, value: T) =
+  for name, field in fieldPairs(value):
+    when not field.hasCustomPragma(transient):
+      stream.cborPack(name)
+      stream.packValue(field)
+
+
 proc packValue[T](stream: CborStream, value: T) =
   when T is Id:
     stream.cborPack(value.entityId.value)
@@ -175,16 +255,8 @@ proc packValue[T](stream: CborStream, value: T) =
     for item in value:
       stream.packValue(item)
   elif T is object or T is tuple:
-    var fieldCount = 0
-
-    for _ in fields(value):
-      inc fieldCount
-
-    stream.cborPackInt(uint64(fieldCount), CborMajor.Map)
-
-    for name, field in fieldPairs(value):
-      stream.cborPack(name)
-      stream.packValue(field)
+    stream.cborPackInt(uint64(value.serializedFieldCount), CborMajor.Map)
+    stream.packFields(value)
   else:
     stream.cborPack(value)
 
@@ -265,20 +337,11 @@ proc unpackValue[T](stream: CborStream, value: var T) =
 
 proc encodeComponent[T](component: T): string =
   var stream = CborStream.init()
-  var fieldCount = 0
 
-  for name, value in fieldPairs(component):
-    when not value.hasCustomPragma(transient):
-      inc fieldCount
-
-  stream.cborPackInt(uint64(fieldCount + 1), CborMajor.Map)
+  stream.cborPackInt(uint64(component.serializedFieldCount + 1), CborMajor.Map)
   stream.cborPack("*component")
   stream.cborPack($typeof component)
-
-  for name, value in fieldPairs(component):
-    when not value.hasCustomPragma(transient):
-      stream.cborPack(name)
-      stream.packValue(value)
+  stream.packFields(component)
 
   stream.data
 
