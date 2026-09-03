@@ -17,7 +17,6 @@ type World* = object
   archIdToIndex: Table[ArchetypeId, int]
   archetypes: seq[Archetype]
   builders: seq[Builder]
-  movers: seq[Mover]
   getters: seq[Getter]
   toConsolidate: HashSet[EntityId]
   version: int = 0
@@ -139,13 +138,11 @@ proc nextArchetypeAddingFrom(world: var World, previousArchetype: Archetype, com
 
   if not world.archIdToIndex.hasKey(nextArchetypeId):
     var builders: seq[Builder] = @[]
-    var movers: seq[Mover] = @[]
 
     for componentId in componentIdsToAdd:
       builders.add world.builders[componentId.uint]
-      movers.add world.movers[componentId.uint]
 
-    let newArchetype = previousArchetype.makeNextAdding(componentIdsToAdd, builders, movers)
+    let newArchetype = previousArchetype.makeNextAdding(componentIdsToAdd, builders)
     world.registerArchetype(nextArchetypeId, newArchetype)
 
   world.archIdToIndex[nextArchetypeId]
@@ -177,15 +174,13 @@ proc archetypeFrom[T: tuple](world: var World, tupleDesc: typedesc[T]): int =
   if not world.archIdToIndex.hasKey(archetypeId):
     var componentIds: seq[ComponentId] = @[]
     var builders: seq[Builder] = @[]
-    var movers: seq[Mover] = @[]
 
     for name, typ in fieldPairs default T:
       let componentId = world.componentIdFrom typeof typ
       componentIds.add componentId
       builders.add world.builders[componentId.int]
-      movers.add world.movers[componentId.int]
 
-    let newArchetype = makeArchetype(componentIds, builders, movers)
+    let newArchetype = makeArchetype(componentIds, builders)
     world.registerArchetype(archetypeId, newArchetype)
 
   world.archIdToIndex[archetypeId]
@@ -386,15 +381,16 @@ proc consolidateRemoveEntity(world: var World, id: EntityId) =
   world.deleteEntity id
 
 
-proc consolidateAddComponents(world: var World, id: EntityId, componentAddersById: Table[ComponentId, Adder]) =
+proc consolidateAddComponents(world: var World, id: EntityId, componentsToAdd: Table[ComponentId, AddItemAny]) =
   var entity = world.entities[id.value]
   var previousArchetype = world.archetypes[entity.archetypeIndex]
   var componentIds: seq[ComponentId] = @[]
 
-  for componentId in componentAddersById.keys:
-    if componentId in previousArchetype.id:
-      let message = "Component " & $componentId & " already exists in Entity " & $id & "."
-      raise newException(DoubleAddDefect, message)
+  for componentId in componentsToAdd.keys:
+    when CHECKS_ENABLED: 
+      if componentId in previousArchetype.id:
+        let message = "Component " & $componentId & " already exists in Entity " & $id & "."
+        raise newException(DoubleAddDefect, message)
 
     componentIds.add componentId
 
@@ -402,7 +398,7 @@ proc consolidateAddComponents(world: var World, id: EntityId, componentAddersByI
   var nextArchetype = world.archetypes[nextIndex]
 
   entity.archetypeIndex = nextIndex
-  entity.archetypeEntityId = previousArchetype.moveAdding(entity.archetypeEntityId, nextArchetype, componentAddersById)
+  entity.archetypeEntityId = previousArchetype.moveAdding(entity.archetypeEntityId, nextArchetype, componentsToAdd)
   world.entities[id.value] = entity
 
 
@@ -439,12 +435,10 @@ proc componentIdFrom*[T](world: var World, desc: typedesc[T]): ComponentId =
 
   if world.builders.len <= id:
     world.builders.setLen(id + 1)
-    world.movers.setLen(id + 1)
     world.getters.setLen(id + 1)
 
   if world.builders[id] == nil:
     world.builders[id] = ecsSeqBuilder[T]()
-    world.movers[id] = ecsSeqMover[T]()
     world.getters[id] = ecsSeqGetter[T]()
 
 
@@ -620,32 +614,41 @@ proc add*[T: tuple](world: var World, id: EntityId, components: T, mode: Operati
 
   var entity = world.entities[id.value]
   let entityArchetype = world.archetypes[entity.archetypeIndex]
-  var addersById = initTable[ComponentId, Adder]()
+  
+  when CHECKS_ENABLED:
+    for name, value in fieldPairs components:
+      let componentId = world.componentIdFrom typeof value
 
-  for name, value in fieldPairs components:
-    let componentId = world.componentIdFrom typeof value
-
-    if entityArchetype.id.contains(componentId):
-      raise newException(ValueError, "Component " & $(typeof value) & " already exists in Entity " & $id)
-
-    let component = value
-    let adder = proc(ecsSeq: var EcsSeqAny, slot: int) =
-      cast[EcsSeq[typeof value]](ecsSeq).addAt(slot, component)
-
-    addersById[componentId] = adder
+      if entityArchetype.id.contains(componentId):
+        raise newException(ValueError, "Component " & $(typeof value) & " already exists in Entity " & $id)
 
   if mode.kind == ImmediateMode:
-    world.consolidateAddComponents(id, addersById)
-  elif mode.kind == AfterMode:
-    for meta in world.write(id, Meta):
-      let operation = Operation(id: meta.id, kind: AddComponents, addersById: addersById)
-      mode.query[].operations.add operation
-  else:
-    for meta in world.write(id, Meta):
-      let operation = Operation(id: meta.id, kind: AddComponents, addersById: addersById)
-      meta.enqueueOperation(operation)
+    var previousArchetype = world.archetypes[entity.archetypeIndex]
+    var componentIdsToAdd: seq[ComponentId] = @[]
+    for name, value in fieldPairs components:
+      componentIdsToAdd.add world.componentIdFrom typeof value
 
-    world.toConsolidate.incl id
+    var nextArchetype = world.nextArchetypeAddingFrom(previousArchetype, componentIdsToAdd)
+    entity.archetypeIndex = nextArchetype
+    entity.archetypeEntityId = previousArchetype.moveAddingTuple(entity.archetypeEntityId, world.archetypes[nextArchetype], components)
+    world.entities[id.value] = entity
+  else:
+    var componentsToAdd = initTable[ComponentId, AddItemAny]()
+    for name, value in fieldPairs components:
+      let componentId = world.componentIdFrom typeof value
+      componentsToAdd[componentId] = newAddItem(value)
+
+    if mode.kind == AfterMode:
+      for meta in world.write(id, Meta):
+        let operation = Operation(id: meta.id, kind: AddComponents, componentsToAdd: componentsToAdd)
+        mode.query[].operations.add operation
+    else:
+      
+      for meta in world.write(id, Meta):
+        let operation = Operation(id: meta.id, kind: AddComponents, componentsToAdd: componentsToAdd)
+        meta.enqueueOperation(operation)
+
+      world.toConsolidate.incl id
 
 
 proc add*[T](world: var World, id: EntityId, component: T, mode: OperationMode = Deferred) =
@@ -851,7 +854,7 @@ proc applyQueryOperations[T: tuple](world: var World, query: var Query[T]) {.inl
     of RemoveEntity:
       world.consolidateRemoveEntity(operation.id)
     of AddComponents:
-      world.consolidateAddComponents(operation.id, operation.addersById)
+      world.consolidateAddComponents(operation.id, operation.componentsToAdd)
     of RemoveComponents:
       world.consolidateRemoveComponents(operation.id, operation.compIdsToRemove)
 
@@ -1019,7 +1022,7 @@ proc consolidate*(world: var World) =
         of RemoveEntity:
           world.consolidateRemoveEntity(id)
         of AddComponents:
-          world.consolidateAddComponents(id, operation.addersById)
+          world.consolidateAddComponents(id, operation.componentsToAdd)
         of RemoveComponents:
           world.consolidateRemoveComponents(id, operation.compIdsToRemove)
 
@@ -1049,7 +1052,8 @@ proc emit*[T](world: var World, event: T) =
 
 
 proc snapshot*(world: var World, id: EntityId): Snapshot =
-  ## Capture all components of an entity (except Meta) into an opaque snapshot.
+  ## Capture a snapshot of an entity's current components and state.
+  ## The snapshot can be used to restore the entity to this state later.
   runnableExamples:
     import examples
 
@@ -1070,12 +1074,6 @@ proc snapshot*(world: var World, id: EntityId): Snapshot =
       let getter = world.getters[compId.int]
       let index = archetype.getIndex(compId)
       result.componentData[compId] = getter(archetype.componentLists[index], archetypeEntityId)
-
-
-proc makeRestoringAdder(mover: Mover, snapshotSeq: EcsSeqAny): Adder =
-  result = proc(toEcsSeq: var EcsSeqAny, slot: int) =
-    var fromSeq: EcsSeqAny = snapshotSeq
-    mover(fromSeq, 0, toEcsSeq, slot)
 
 
 proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
@@ -1102,11 +1100,12 @@ proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
 
   world.addWithSpecificId(id)
 
-  var addersById: Table[ComponentId, Adder]
+  var componentsToAdd = initTable[ComponentId, AddItemAny]()
   for compId, snapshotSeq in snap.componentData:
-    addersById[compId] = makeRestoringAdder(world.movers[compId.int], snapshotSeq)
+    let raw = snapshotSeq.rawGet(0)
+    componentsToAdd[compId] = AddItemAny(raw: raw)
 
-  world.consolidateAddComponents(id, addersById)
+  world.consolidateAddComponents(id, componentsToAdd)
 
 
 iterator collect*[T](world: var World, _: typedesc[T]): T =
