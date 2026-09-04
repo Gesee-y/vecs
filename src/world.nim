@@ -485,7 +485,7 @@ proc has*[T](world: var World, id: EntityId, compDesc: typedesc[T]): bool =
   compId in archetype.id
 
 
-proc read*[T](world: var World, id: EntityId, compDesc: typedesc[T]): T =
+template read*[T](world: var World, id: EntityId, compDesc: typedesc[T]): T =
   ## Directly read a single component of an entity.
   runnableExamples:
     import examples
