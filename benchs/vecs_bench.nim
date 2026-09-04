@@ -353,9 +353,9 @@ if isMainModule:
   let suite = runVecsBenchmarks()
   suite.showSummary()
 
-  #if fileExists(baselineCsv):
-  #  echo compareWithBaseline(suite, baselineCsv)
-  #else:
-  #  echo "No baseline at ", baselineCsv, ", skipping comparison."
+  if fileExists(baselineCsv):
+    echo compareWithBaseline(suite, baselineCsv)
+  else:
+    echo "No baseline at ", baselineCsv, ", skipping comparison."
 
-  #suite.saveSummary(outCsv)
+  suite.saveSummary(outCsv)

@@ -541,7 +541,7 @@ iterator write*[T](world: var World, id: EntityId, compDesc: typedesc[T]): var T
     yield cast[Retype](ecsSeqAny)[archetypeEntityId]
 
 
-proc read*[T: tuple](world: var World, id: EntityId, tup: typedesc[T]): T =
+template read*[T: tuple](world: var World, id: EntityId, tup: typedesc[T]): T =
   ## Direct read access to multiple components of an entity.
   ## The `T` tuple must contain no `Write`, `Opt`, or `Not` accessors.
   runnableExamples:
