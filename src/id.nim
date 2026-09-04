@@ -5,10 +5,11 @@ import world
 
 
 type Id*[T] = object
-  val: uint64
+  val: uint64 = ENTITY_ID_MASK
 
-proc value*[T](e: Id[T]): int = int(e.val and ENTITY_ID_MASK) 
+proc value*[T](e: Id[T]): int = int(e.val and ENTITY_ID_MASK)
 proc generation*[T](e: Id[T]): int = int((e.val and ENTITY_GEN_MASK) shr ENTITY_ID_POS)
+proc isValid*[T](e: Id[T]): bool = e.value != INVALID_ENTITY_VALUE
 
 template makeVal(gen, val: untyped): uint64 =
   (uint64(gen) shl ENTITY_ID_POS) or uint64(val) 

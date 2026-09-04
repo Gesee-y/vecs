@@ -87,6 +87,31 @@ suite "Adding a whole world should":
     check world.read(mapping[strayId], Link).target == Id[Tag]()
 
 
+  test "leave null ids null":
+    let nullId = other.add((Link(target: Id[Tag]()),), Immediate)
+    let mapping = world.add(other, Migrated)
+    let target = world.read(mapping[nullId], Link).target
+
+    checkpoint("A null id must survive the merge as a null id.")
+    check target == Id[Tag]()
+
+    checkpoint("A null id must not be remapped to the first entity's counterpart.")
+    check target != (mapping[tagId] of Tag)
+
+
+  test "keep the root of an added hierarchy unparented":
+    var scene = World()
+    let rootId = scene.add((Tag(name: "root"), Link(target: Id[Tag]())), Immediate)
+    let childId = scene.add((Tag(name: "child"), Link(target: (rootId of Tag))), Immediate)
+    let mapping = world.add(scene, Migrated)
+
+    checkpoint("The root's null parent must stay null.")
+    check world.read(mapping[rootId], Link).target == Id[Tag]()
+
+    checkpoint("The child must point at the root's counterpart.")
+    check world.read(mapping[childId], Link).target == (mapping[rootId] of Tag)
+
+
   test "remap ids held in sequences":
     let groupId = other.add((Group(members: @[tagId of Tag]),), Immediate)
     let mapping = world.add(other, Migrated)

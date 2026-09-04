@@ -43,6 +43,20 @@ suite "Id should":
     check world.has(id)
 
 
+  test "tell a default EntityId apart from a real entity":
+    checkpoint("A default EntityId is invalid and must match no entity.")
+    check EntityId() != marcusId
+    check not world.has(EntityId())
+
+
+  test "tell a default Id apart from a real entity":
+    let id = marcusId of Character
+
+    checkpoint("A default Id is invalid and must match no entity.")
+    check Id[Character]() != id
+    check not world.has(Id[Character]().entityId)
+
+
   test "read a single component":
     let id = marcusId of Character
     let character = world.read(id)

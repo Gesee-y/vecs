@@ -95,6 +95,30 @@ suite "Snapshots should":
     check world.read(marcusId, Health).health == 120
 
 
+  test "survive being restored onto several entities":
+    let snap = world.snapshot(marcusId)
+    let firstId = world.addEmpty()
+    let secondId = world.addEmpty()
+
+    world.restore(snap, firstId)
+    world.restore(snap, secondId)
+
+    checkpoint("Every restore should carry the snapshot's values.")
+    check world.read(firstId, Character) == Character(name: "Marcus", class: "Warrior")
+    check world.read(secondId, Character) == Character(name: "Marcus", class: "Warrior")
+
+
+  test "survive being restored twice onto its own entity":
+    let snap = world.snapshot(marcusId)
+
+    world.restore(snap)
+    world.restore(snap)
+
+    checkpoint("A second restore should not blank the snapshot's values.")
+    check world.read(marcusId, Character) == Character(name: "Marcus", class: "Warrior")
+    check world.read(marcusId, Weapon) == Weapon(name: "Sword", attack: 10)
+
+
   test "not capture the Meta component":
     let originalMeta = world.read(marcusId, Meta)
     let snap = world.snapshot(marcusId)

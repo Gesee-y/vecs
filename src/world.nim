@@ -59,7 +59,7 @@ proc entityAlreadyExists(id: EntityId): ref Exception =
 # Checks
 proc checkIdIsValid(id: EntityId) =
   when CHECKS_ENABLED:
-    if id.value < 0:
+    if not id.isValid:
       raise idIsInvalid(id)
 
 
@@ -70,7 +70,7 @@ template checkNotATuple[T](tup: typedesc[T]) =
 
 proc has*(world: var World, id: EntityId): bool =
   ## Check if an entity exists.
-  id.value >= 0 and
+  id.isValid and
   id.value < world.generations.len and
   world.generations[id.value] == id.generation
 
@@ -828,7 +828,7 @@ proc addWithSpecificId*(world: var World, id: EntityId) =
     import examples
 
     var w = World()
-    w.addWithSpecificId(EntityId(value: 10))
+    w.addWithSpecificId(newEntityId(0, 10))
 
   checkIdIsValid(id)
   world.checkEntityDoesNotExist(id)
@@ -1091,6 +1091,11 @@ proc snapshot*(world: var World, id: EntityId): Snapshot =
       result.componentData[compId] = getter(archetype.componentLists[index], archetypeEntityId)
 
 
+proc duplicateComponent(world: var World, componentId: ComponentId, snapshotSeq: EcsSeqAny): EcsSeqAny =
+  let getter = world.getters[componentId.int]
+  getter(snapshotSeq, 0)
+
+
 proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
   ## Restore an entity to a previously captured snapshot state.
   ## Components removed since the snapshot are re-added.
@@ -1116,9 +1121,12 @@ proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
   world.addWithSpecificId(id)
 
   var componentsToAdd = initTable[ComponentId, AddItemAny]()
+  var duplicates: seq[EcsSeqAny]
+
   for compId, snapshotSeq in snap.componentData:
-    let raw = snapshotSeq.rawGet(0)
-    componentsToAdd[compId] = AddItemAny(raw: raw)
+    let duplicate = world.duplicateComponent(compId, snapshotSeq)
+    duplicates.add duplicate
+    componentsToAdd[compId] = AddItemAny(raw: duplicate.rawGet(0))
 
   world.consolidateAddComponents(id, componentsToAdd)
 

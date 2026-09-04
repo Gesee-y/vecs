@@ -71,6 +71,24 @@ suite "Binary (CBOR) serialization should":
     check restored.has(elenaId)
 
 
+  test "preserve the generation of a recycled entity id":
+    world.remove(elenaId, Immediate)
+    let recycledId = world.add((Character(name: "Rook", class: "Rogue"),), Immediate)
+
+    let data = world.serializeToBinary((Character, Health, Weapon))
+    var restored = deserializeFromBinary(data, (Character, Health, Weapon))
+
+    checkpoint("The recycled entity should have taken Elena's slot under a newer generation.")
+    check recycledId.value == elenaId.value
+    check recycledId.generation != elenaId.generation
+
+    checkpoint("The recycled id should still name its entity after the round-trip.")
+    check restored.has(recycledId)
+
+    checkpoint("Elena's stale id should not resolve to the entity that took her slot.")
+    check not restored.has(elenaId)
+
+
   test "round-trip a component holding binary data":
     let bytes = @[0'u8, 1'u8, 2'u8, 128'u8, 200'u8, 253'u8, 254'u8, 255'u8]
     let portraitId = world.add((Portrait(name: "Marcus' portrait", data: bytes),), Immediate)
