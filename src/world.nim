@@ -4,7 +4,7 @@
 import std/[packedsets, hashes, macros, intsets, options]
 import typetraits, tables, sets
 import entityid, componentid, archetypeid, archetype, entity, ecsseq, queries, components, operations, operationmodes, events
-export entityid.EntityId, components.Meta, operationmodes
+export entityid, components.Meta, operationmodes
 export components
 export events
 
@@ -12,9 +12,10 @@ const CHECKS_ENABLED = not defined(danger)
 
 type World* = object
   entities: seq[Entity] = @[]
-  entityDeleted: seq[bool] = @[]
+  generations: seq[int] = @[]
   entityFree: seq[int] = @[]
   archIdToIndex: Table[ArchetypeId, int]
+  freeArchetype: seq[int]
   archetypes: seq[Archetype]
   builders: seq[Builder]
   getters: seq[Getter]
@@ -58,7 +59,7 @@ proc entityAlreadyExists(id: EntityId): ref Exception =
 # Checks
 proc checkIdIsValid(id: EntityId) =
   when CHECKS_ENABLED:
-    if id.value < 0:
+    if not id.isValid:
       raise idIsInvalid(id)
 
 
@@ -69,26 +70,25 @@ template checkNotATuple[T](tup: typedesc[T]) =
 
 proc has*(world: var World, id: EntityId): bool =
   ## Check if an entity exists.
-  id.value >= 0 and
-  id.value < world.entityDeleted.len and
-  not world.entityDeleted[id.value]
+  id.isValid and
+  id.value < world.generations.len and
+  world.generations[id.value] == id.generation
 
 
 proc allocateEntity(world: var World, entity: Entity): EntityId =
   if world.entityFree.len > 0:
     let id = world.entityFree.pop()
-    world.entityDeleted[id] = false
     world.entities[id] = entity
-    result = EntityId(value: id)
+    result = newEntityId(world.generations[id], id)
   else:
-    let id = world.entityDeleted.len
-    world.entityDeleted.add false
+    let id = world.entities.len
+    world.generations.add 0
     world.entities.add entity
-    result = EntityId(value: id)
+    result = newEntityId(0, id)
 
 
 proc deleteEntity(world: var World, id: EntityId) =
-  world.entityDeleted[id.value] = true
+  inc world.generations[id.value]
   world.entityFree.add id.value
 
 
@@ -96,19 +96,18 @@ proc setEntityAt(world: var World, id: EntityId, entity: Entity) =
   if id.value >= world.entities.len:
     let oldLen = world.entities.len
     world.entities.setLen(id.value + 1)
-    world.entityDeleted.setLen(id.value + 1)
+    world.generations.setLen(id.value + 1)
 
     for i in oldLen ..< id.value:
-      world.entityDeleted[i] = true
+      world.generations[i] = 1
       world.entityFree.add i
 
-  if world.entityDeleted[id.value]:
-    let freeIndex = world.entityFree.find(id.value)
-    if freeIndex >= 0:
-      world.entityFree.del(freeIndex)
+  let freeIndex = world.entityFree.find(id.value)
+  if freeIndex >= 0:
+    world.entityFree.del(freeIndex)
 
   world.entities[id.value] = entity
-  world.entityDeleted[id.value] = false
+  world.generations[id.value] = id.generation
 
 
 proc checkEntityExists(world: var World, id: EntityId) =
@@ -125,8 +124,15 @@ proc checkEntityDoesNotExist(world: var World, id: EntityId) =
 
 # Archetype creation and book-keeping
 proc registerArchetype(world: var World, archetypeId: ArchetypeId, archetype: Archetype) =
-  world.archIdToIndex[archetypeId] = world.archetypes.len
-  world.archetypes.add archetype
+  if world.freeArchetype.len > 0:
+    let recycledIndex = world.freeArchetype.pop
+
+    world.archIdToIndex[archetypeId] = recycledIndex
+    world.archetypes[recycledIndex] = archetype
+    inc world.version
+  else:
+    world.archIdToIndex[archetypeId] = world.archetypes.len
+    world.archetypes.add archetype
 
 
 proc nextArchetypeAddingFrom(world: var World, previousArchetype: Archetype, componentIdsToAdd: seq[ComponentId]): int =
@@ -214,21 +220,38 @@ proc excludedArchetypeIdsFrom[T: tuple](world: var World, desc: typedesc[T]): Ar
       result.incl compId
 
 
-proc updateQuery[T: tuple](world: var World, query: var Query[T]) =
-  if world.archetypes.len == query.lastArchetypeCount:
+proc matchArchetypeAt[T: tuple](
+    world: var World,
+    query: var Query[T],
+    index: int,
+    requiredArchetypeIds: ArchetypeId,
+    excludedArchetypeIds: ArchetypeId
+) =
+  let archetype = world.archetypes[index]
+
+  if archetype.isNil:
     return
 
+  if not archetype.contains(requiredArchetypeIds):
+    return
+
+  if not archetype.disjointed(excludedArchetypeIds):
+    return
+
+  query.matchedArchetypes.add index
+
+
+proc updateQuery[T: tuple](world: var World, query: var Query[T]) =
   if world.version > query.lastVersion:
     query.reset(world.version)
+  elif world.archetypes.len == query.lastArchetypeCount:
+    return
 
   let requiredArchetypeIds = world.requiredArchetypeIdsFrom T
   let excludedArchetypeIds = world.excludedArchetypeIdsFrom T
 
   for index in query.lastArchetypeCount ..< world.archetypes.len:
-    let archetype = world.archetypes[index]
-
-    if archetype.contains(requiredArchetypeIds) and archetype.disjointed(excludedArchetypeIds):
-      query.matchedArchetypes.add index
+    world.matchArchetypeAt(query, index, requiredArchetypeIds, excludedArchetypeIds)
 
   query.lastArchetypeCount = world.archetypes.len
 
@@ -424,7 +447,8 @@ iterator archetypes*(world: var World): Archetype =
   ## This is mostly useful just to implement custom queries.
   ## To use Archetypes, the archetype module must be imported.
   for archetype in world.archetypes:
-    yield archetype
+    if not archetype.isNil:
+      yield archetype
 
 
 proc componentIdFrom*[T](world: var World, desc: typedesc[T]): ComponentId =
@@ -804,7 +828,7 @@ proc addWithSpecificId*(world: var World, id: EntityId) =
     import examples
 
     var w = World()
-    w.addWithSpecificId(EntityId(value: 10))
+    w.addWithSpecificId(newEntityId(0, 10))
 
   checkIdIsValid(id)
   world.checkEntityDoesNotExist(id)
@@ -972,42 +996,33 @@ iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T)
     yield world.buildAccessTuple((Write[Meta], Write[T]), archetype, archetypeEntityId)
 
 
+proc releaseArchetypeIfEmpty(world: var World, index: int): bool =
+  let archetype = world.archetypes[index]
+
+  if archetype.isNil:
+    return false
+
+  if not archetype.isEmpty:
+    return false
+
+  world.archIdToIndex.del(archetype.id)
+  world.archetypes[index] = nil
+  world.freeArchetype.add index
+  result = true
+
+
 proc cleanupEmptyArchetypes*(world: var World) =
   ## Cleans up empty archetypes.
   ## This is useful mostly for deserialization routines.
   ## Removing archetypes forces caches from queries to be rebuilt.
-  var upVersion = false
-  var newArchetypes: seq[Archetype] = @[]
-  var newArchIdToIndex: Table[ArchetypeId, int]
-  var oldIndexToNewIndex: seq[int]
+  var releasedAny = false
 
-  for oldIndex, archetype in world.archetypes:
-    if archetype.isEmpty:
-      upVersion = true
-    else:
-      let newIndex = newArchetypes.len
-      if oldIndex >= oldIndexToNewIndex.len: oldIndexToNewIndex.setLen(oldIndex + 1)
-      newArchIdToIndex[archetype.id] = newIndex
-      oldIndexToNewIndex[oldIndex] = newIndex + 1
-      newArchetypes.add archetype
+  for index in 0 ..< world.archetypes.len:
+    if world.releaseArchetypeIfEmpty(index):
+      releasedAny = true
 
-  if upVersion:
+  if releasedAny:
     inc world.version
-    world.archetypes = newArchetypes
-    world.archIdToIndex = newArchIdToIndex
-    if world.entityFree.len == 0:
-      for id in 0 ..< world.entityDeleted.len:
-        var entity = world.entities[id]
-        if entity.archetypeIndex < oldIndexToNewIndex.len and oldIndexToNewIndex[entity.archetypeIndex] > 0:
-          entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex] - 1
-          world.entities[id] = entity
-    else:
-      for id in 0 ..< world.entityDeleted.len:
-        if not world.entityDeleted[id]:
-          var entity = world.entities[id]
-          if entity.archetypeIndex < oldIndexToNewIndex.len and oldIndexToNewIndex[entity.archetypeIndex] > 0:
-            entity.archetypeIndex = oldIndexToNewIndex[entity.archetypeIndex] - 1
-            world.entities[id] = entity
 
 
 proc consolidate*(world: var World) =
@@ -1076,6 +1091,11 @@ proc snapshot*(world: var World, id: EntityId): Snapshot =
       result.componentData[compId] = getter(archetype.componentLists[index], archetypeEntityId)
 
 
+proc duplicateComponent(world: var World, componentId: ComponentId, snapshotSeq: EcsSeqAny): EcsSeqAny =
+  let getter = world.getters[componentId.int]
+  getter(snapshotSeq, 0)
+
+
 proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
   ## Restore an entity to a previously captured snapshot state.
   ## Components removed since the snapshot are re-added.
@@ -1101,9 +1121,12 @@ proc restore*(world: var World, snap: Snapshot, id: EntityId = EntityId()) =
   world.addWithSpecificId(id)
 
   var componentsToAdd = initTable[ComponentId, AddItemAny]()
+  var duplicates: seq[EcsSeqAny]
+
   for compId, snapshotSeq in snap.componentData:
-    let raw = snapshotSeq.rawGet(0)
-    componentsToAdd[compId] = AddItemAny(raw: raw)
+    let duplicate = world.duplicateComponent(compId, snapshotSeq)
+    duplicates.add duplicate
+    componentsToAdd[compId] = AddItemAny(raw: duplicate.rawGet(0))
 
   world.consolidateAddComponents(id, componentsToAdd)
 

@@ -32,7 +32,7 @@ proc createJsonObject(entities: Table[EntityId, seq[JsonNode]]): JsonNode =
 
   for (id, components) in entities.pairs:
     var entity = newJObject()
-    entity["id"] = newJInt(id.value)
+    entity["id"] = newJInt(cast[int64](id.val))
     entity["components"] = newJArray()
 
     for component in components:
@@ -43,8 +43,7 @@ proc createJsonObject(entities: Table[EntityId, seq[JsonNode]]): JsonNode =
 
 iterator iteratetJsonComponents(json: JsonNode, world: var World): (EntityId, JsonNode, string) =
   for entity in json["entities"]:
-    let intId = entity["id"].getInt
-    let id = EntityId(value: intId)
+    let id = EntityId(val: cast[uint64](entity["id"].getBiggestInt))
     let components = entity["components"]
     world.addWithSpecificId id
 
@@ -244,9 +243,9 @@ proc packFields[T](stream: CborStream, value: T) =
 
 proc packValue[T](stream: CborStream, value: T) =
   when T is Id:
-    stream.cborPack(value.entityId.value)
+    stream.cborPack(value.entityId.val)
   elif T is EntityId:
-    stream.cborPack(value.value)
+    stream.cborPack(value.val)
   elif T is string or T is seq[uint8]:
     stream.cborPack(value)
   elif T is seq or T is array:
@@ -316,13 +315,13 @@ proc unpackFields[T](stream: CborStream, value: var T) =
 
 proc unpackValue[T](stream: CborStream, value: var T) =
   when T is Id:
-    var raw: int
+    var raw: uint64
     stream.cborUnpack(raw)
-    value.entityId = EntityId(value: raw)
+    value.entityId = EntityId(val: raw)
   elif T is EntityId:
-    var raw: int
+    var raw: uint64
     stream.cborUnpack(raw)
-    value = EntityId(value: raw)
+    value = EntityId(val: raw)
   elif T is string or T is seq[uint8]:
     stream.cborUnpack(value)
   elif T is seq:
@@ -365,7 +364,7 @@ proc writeBinaryEntities(stream: CborStream, entities: Table[EntityId, seq[strin
   for (id, components) in entities.pairs:
     stream.cborPackInt(2, CborMajor.Map)
     stream.cborPack("id")
-    stream.cborPack(id.value)
+    stream.cborPack(id.val)
     stream.cborPack("components")
     stream.cborPackInt(uint64(components.len), CborMajor.Array)
 
@@ -457,9 +456,9 @@ proc readBinaryEntities[T: tuple](world: var World, stream: CborStream, tup: typ
 
     var idKey: string
     stream.cborUnpack(idKey)
-    var idValue: int
+    var idValue: uint64
     stream.cborUnpack(idValue)
-    let id = EntityId(value: idValue)
+    let id = EntityId(val: idValue.uint64)
     world.addWithSpecificId id
 
     var componentsKey: string

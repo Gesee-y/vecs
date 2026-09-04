@@ -98,6 +98,27 @@ suite "Binary (CBOR) serialization of complex fields should":
     check restored.read(rootId).parentId == Id[Node]()
 
 
+  test "round-trip an Id[] pointing at a recycled entity":
+    var world = World()
+    let staleId = world.add((Node(name: "stale"),), Immediate)
+    world.remove(staleId, Immediate)
+    let rootId = world.add((Node(name: "root"),), Immediate) of Node
+    let childId = world.add((Node(name: "child", parentId: rootId),), Immediate) of Node
+
+    let data = world.serializeToBinary((Node,))
+    var restored = deserializeFromBinary(data, (Node,))
+
+    checkpoint("The root should have taken the removed entity's slot under a newer generation.")
+    check rootId.value == staleId.value
+    check rootId.generation != staleId.generation
+
+    checkpoint("The child's parentId should still point at the root.")
+    check restored.read(childId).parentId == rootId
+
+    checkpoint("The root should be reachable under the id the child holds.")
+    check restored.has(restored.read(childId).parentId.entityId)
+
+
   test "round-trip a seq of Id[] fields":
     var world = World()
     let rootId = world.add((Node(name: "root"),), Immediate) of Node
