@@ -125,10 +125,11 @@ proc checkEntityDoesNotExist(world: var World, id: EntityId) =
 # Archetype creation and book-keeping
 proc registerArchetype(world: var World, archetypeId: ArchetypeId, archetype: Archetype) =
   if world.freeArchetype.len > 0:
-    let archId = world.freeArchetype.pop
-  
-    world.archIdToIndex[archetypeId] = archId
-    world.archetypes[archId] = archetype
+    let recycledIndex = world.freeArchetype.pop
+
+    world.archIdToIndex[archetypeId] = recycledIndex
+    world.archetypes[recycledIndex] = archetype
+    inc world.version
   else:
     world.archIdToIndex[archetypeId] = world.archetypes.len
     world.archetypes.add archetype
@@ -219,21 +220,38 @@ proc excludedArchetypeIdsFrom[T: tuple](world: var World, desc: typedesc[T]): Ar
       result.incl compId
 
 
-proc updateQuery[T: tuple](world: var World, query: var Query[T]) =
-  if world.archetypes.len == query.lastArchetypeCount:
+proc matchArchetypeAt[T: tuple](
+    world: var World,
+    query: var Query[T],
+    index: int,
+    requiredArchetypeIds: ArchetypeId,
+    excludedArchetypeIds: ArchetypeId
+) =
+  let archetype = world.archetypes[index]
+
+  if archetype.isNil:
     return
 
+  if not archetype.contains(requiredArchetypeIds):
+    return
+
+  if not archetype.disjointed(excludedArchetypeIds):
+    return
+
+  query.matchedArchetypes.add index
+
+
+proc updateQuery[T: tuple](world: var World, query: var Query[T]) =
   if world.version > query.lastVersion:
     query.reset(world.version)
+  elif world.archetypes.len == query.lastArchetypeCount:
+    return
 
   let requiredArchetypeIds = world.requiredArchetypeIdsFrom T
   let excludedArchetypeIds = world.excludedArchetypeIdsFrom T
 
   for index in query.lastArchetypeCount ..< world.archetypes.len:
-    let archetype = world.archetypes[index]
-
-    if archetype.contains(requiredArchetypeIds) and archetype.disjointed(excludedArchetypeIds):
-      query.matchedArchetypes.add index
+    world.matchArchetypeAt(query, index, requiredArchetypeIds, excludedArchetypeIds)
 
   query.lastArchetypeCount = world.archetypes.len
 
@@ -429,7 +447,8 @@ iterator archetypes*(world: var World): Archetype =
   ## This is mostly useful just to implement custom queries.
   ## To use Archetypes, the archetype module must be imported.
   for archetype in world.archetypes:
-    yield archetype
+    if not archetype.isNil:
+      yield archetype
 
 
 proc componentIdFrom*[T](world: var World, desc: typedesc[T]): ComponentId =
@@ -977,20 +996,32 @@ iterator queryForRemoval*[T](world: var World, compDesc: typedesc[T]): (Meta, T)
     yield world.buildAccessTuple((Write[Meta], Write[T]), archetype, archetypeEntityId)
 
 
+proc releaseArchetypeIfEmpty(world: var World, index: int): bool =
+  let archetype = world.archetypes[index]
+
+  if archetype.isNil:
+    return false
+
+  if not archetype.isEmpty:
+    return false
+
+  world.archIdToIndex.del(archetype.id)
+  world.archetypes[index] = nil
+  world.freeArchetype.add index
+  result = true
+
+
 proc cleanupEmptyArchetypes*(world: var World) =
   ## Cleans up empty archetypes.
   ## This is useful mostly for deserialization routines.
   ## Removing archetypes forces caches from queries to be rebuilt.
-  var upVersion = false
+  var releasedAny = false
 
-  for i in 0..<world.archetypes.len:
-    if world.archetypes[i].isEmpty:
-      world.archIdToIndex.del(world.archetypes[i].id)
-      world.archetypes[i] = nil
-      world.freeArchetype.add(i)
-      upVersion = true
+  for index in 0 ..< world.archetypes.len:
+    if world.releaseArchetypeIfEmpty(index):
+      releasedAny = true
 
-  if upVersion:
+  if releasedAny:
     inc world.version
 
 
