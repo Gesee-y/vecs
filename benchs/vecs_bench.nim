@@ -234,6 +234,7 @@ proc runVecsBenchmarks(): BenchmarkSuite =
 
   return suite
 
+#[
 if isMainModule:
   let outCsv = if paramCount() >= 1: paramStr(1) else: "benchs/vecs.csv"
   let baselineCsv = if paramCount() >= 2: paramStr(2) else: outCsv
@@ -247,3 +248,7 @@ if isMainModule:
     echo "No baseline at ", baselineCsv, ", skipping comparison."
 
   suite.saveSummary(outCsv)
+]#
+
+let suite = runVecsBenchmarks()
+suite.showSummary()
